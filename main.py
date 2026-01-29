@@ -1,7 +1,7 @@
 import arcade
 import math
 import random
-from games import FighterGameView, TanksGameView, DicePokerView
+from games import FighterGameView, TanksGameView, DicePokerView, MinesGameView, SnakeGameView 
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
