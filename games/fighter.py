@@ -362,9 +362,9 @@ class FighterGameView(arcade.View):
             anchor_y="center",
             bold=True,
         )
-        arcade.draw_text("WASD + F", 180, SCREEN_HEIGHT - 60, arcade.color.CYAN, 11, anchor_x="center")
+        arcade.draw_text("WASD + Space", 180, SCREEN_HEIGHT - 60, arcade.color.CYAN, 11, anchor_x="center")
         arcade.draw_text(
-            "Стрелки + L", SCREEN_WIDTH - 180, SCREEN_HEIGHT - 60, arcade.color.ORANGE, 11, anchor_x="center"
+            "Стрелки + REnter", SCREEN_WIDTH - 180, SCREEN_HEIGHT - 60, arcade.color.ORANGE, 11, anchor_x="center"
         )
 
         if self.game_over:
@@ -469,9 +469,9 @@ class FighterGameView(arcade.View):
             self.player1.jump()
         if key == arcade.key.UP:
             self.player2.jump()
-        if key == arcade.key.F:
+        if key == arcade.key.SPACE:
             self.player1.attack()
-        if key == arcade.key.L:
+        if key == arcade.key.ENTER:
             self.player2.attack()
 
         if key == arcade.key.ESCAPE:
