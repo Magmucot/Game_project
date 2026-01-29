@@ -1,8 +1,12 @@
 import arcade
 import math
 import random
+<<<<<<< HEAD
 from games import FighterGameView, TanksGameView, DicePokerView
 from data_manager import GameDataManager
+=======
+from games import FighterGameView, TanksGameView, DicePokerView, MinesGameView, SnakeGameView 
+>>>>>>> ab2fa9075367d4fd0070ab535270962bc66dffaa
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
