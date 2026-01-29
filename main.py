@@ -2,15 +2,14 @@ import arcade
 import math
 import random
 from games import FighterGameView, TanksGameView, DicePokerView
+from data_manager import GameDataManager
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
-SCREEN_TITLE = "Оффлайн игры"
+SCREEN_TITLE = "Оффлайн игры — 6 в 1"
 
 
 class Button:
-    """Кнопка"""
-
     def __init__(self, x, y, width, height, text, action=None):
         self.x = x
         self.y = y
@@ -22,35 +21,22 @@ class Button:
         self.hover_scale = 1.0
 
     def update(self, delta_time):
-        # Анимация масштаба
         target = 1.1 if self.hovered else 1.0
         self.hover_scale += (target - self.hover_scale) * delta_time * 10
 
     def draw(self):
-        w = self.width * self.hover_scale
-        h = self.height * self.hover_scale
-
-        # Тень
+        w, h = self.width * self.hover_scale, self.height * self.hover_scale
         arcade.draw_lbwh_rectangle_filled(self.x - w / 2 + 4, self.y - h / 2 - 4, w, h, (0, 0, 0, 100))
-
-        # Кнопка
         color = arcade.color.SLATE_BLUE if self.hovered else arcade.color.DARK_SLATE_BLUE
         arcade.draw_lbwh_rectangle_filled(self.x - w / 2, self.y - h / 2, w, h, color)
-
-        # Рамка
-        border_color = arcade.color.GOLD if self.hovered else arcade.color.WHITE
-        arcade.draw_lbwh_rectangle_outline(self.x - w / 2, self.y - h / 2, w, h, border_color, 3)
-
-        # Текст
+        border = arcade.color.GOLD if self.hovered else arcade.color.WHITE
+        arcade.draw_lbwh_rectangle_outline(self.x - w / 2, self.y - h / 2, w, h, border, 3)
         arcade.draw_text(
-            self.text, self.x, self.y, arcade.color.WHITE, font_size=20, anchor_x="center", anchor_y="center", bold=True
+            self.text, self.x, self.y, arcade.color.WHITE, 18, anchor_x="center", anchor_y="center", bold=True
         )
 
     def check_hover(self, mouse_x, mouse_y):
-        self.hovered = (
-            self.x - self.width / 2 < mouse_x < self.x + self.width / 2
-            and self.y - self.height / 2 < mouse_y < self.y + self.height / 2
-        )
+        self.hovered = abs(mouse_x - self.x) < self.width / 2 and abs(mouse_y - self.y) < self.height / 2
         return self.hovered
 
     def check_click(self, mouse_x, mouse_y, button):
@@ -62,32 +48,27 @@ class Button:
 
 
 class BackgroundParticle:
-    """Частица фона"""
-
     def __init__(self):
-        self.reset()
+        self.reset(random.uniform(0, SCREEN_HEIGHT))
 
-    def reset(self):
+    def reset(self, start_y=SCREEN_HEIGHT):
         self.x = random.uniform(0, SCREEN_WIDTH)
-        self.y = random.uniform(0, SCREEN_HEIGHT)
-        self.speed = random.uniform(30, 80)
-        self.size = random.uniform(2, 5)
-        self.alpha = random.randint(50, 150)
+        self.y = start_y
+        self.speed = random.uniform(20, 60)
+        self.size = random.uniform(1, 3)
+        self.alpha = random.randint(50, 180)
 
     def update(self, delta_time):
         self.y -= self.speed * delta_time
         if self.y < 0:
-            self.y = SCREEN_HEIGHT
-            self.x = random.uniform(0, SCREEN_WIDTH)
+            self.reset()
 
     def draw(self):
         arcade.draw_circle_filled(self.x, self.y, self.size, (255, 255, 255, self.alpha))
 
 
-class AnimatedBackground:
-    """Анимированный фон"""
-
-    def __init__(self, count=30):
+class StableBackground:
+    def __init__(self, count=50):
         self.particles = [BackgroundParticle() for _ in range(count)]
 
     def update(self, delta_time):
@@ -102,19 +83,16 @@ class AnimatedBackground:
 class MainMenuView(arcade.View):
     def __init__(self):
         super().__init__()
-        self.buttons = []
-        self.background = AnimatedBackground()
-        self.title_offset = 0.0
+        self.background = StableBackground()
         self.time = 0.0
-        self.setup_buttons()
-        self.click_sound = arcade.load_sound("assets/click.wav")
-
-    def setup_buttons(self):
-        center_x = SCREEN_WIDTH // 2
         self.buttons = [
-            Button(center_x, 320, 280, 70, "ИГРЫ", self.go_to_games),
-            Button(center_x, 220, 280, 70, "НАСТРОЙКИ", self.go_to_settings),
+            Button(SCREEN_WIDTH // 2, 320, 280, 70, "К ИГРАМ", self.go_to_games),
+            Button(SCREEN_WIDTH // 2, 220, 280, 70, "СТАТИСТИКА", self.go_to_settings),
         ]
+        try:
+            self.click_sound = arcade.load_sound(":resources:sounds/hit1.wav")
+        except:
+            self.click_sound = None
 
     def go_to_games(self):
         self.window.show_view(GamesMenuView())
@@ -122,41 +100,18 @@ class MainMenuView(arcade.View):
     def go_to_settings(self):
         self.window.show_view(SettingsView())
 
-    def on_show_view(self):
-        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
-
     def on_update(self, delta_time):
         self.background.update(delta_time)
         self.time += delta_time
-        self.title_offset = math.sin(self.time * 2) * 5
         for btn in self.buttons:
             btn.update(delta_time)
 
     def on_draw(self):
         self.clear()
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
         self.background.draw()
-
-        arcade.draw_text(
-            "Оффлайн игры",
-            SCREEN_WIDTH // 2,
-            480 + self.title_offset,
-            arcade.color.AQUA,
-            48,
-            anchor_x="center",
-            anchor_y="center",
-            bold=True,
-        )
-
-        arcade.draw_text(
-            "Небольшая коллекция игр",
-            SCREEN_WIDTH // 2,
-            420,
-            arcade.color.LIGHT_GRAY,
-            18,
-            anchor_x="center",
-            anchor_y="center",
-        )
-
+        title_y = 480 + math.sin(self.time * 2) * 8
+        arcade.draw_text("ИГРОВОЙ ХАБ", SCREEN_WIDTH // 2, title_y, arcade.color.AQUA, 48, anchor_x="center", bold=True)
         for btn in self.buttons:
             btn.draw()
 
@@ -166,61 +121,39 @@ class MainMenuView(arcade.View):
 
     def on_mouse_press(self, x, y, button, modifiers):
         for btn in self.buttons:
-            btn.check_click(x, y, button)
-            arcade.play_sound(self.click_sound)
+            if btn.check_click(x, y, button) and self.click_sound:
+                arcade.play_sound(self.click_sound)
 
 
 class GamesMenuView(arcade.View):
     def __init__(self):
         super().__init__()
-        self.buttons = []
-        self.background = AnimatedBackground()
-        self.click_sound = arcade.load_sound("assets/click.wav")
-
+        self.background = StableBackground()
         self.setup_buttons()
 
     def setup_buttons(self):
-        games = [
-            ("Игра 1", None),
-            ("Игра 2", None),
-            ("Игра 3", None),
-            ("Файтинг", lambda: FighterGameView(GamesMenuView)),
-            ("Танчики", lambda: TanksGameView(GamesMenuView)),
-            ("Покер на костях", lambda: DicePokerView(GamesMenuView)),
+        self.buttons = []
+        # Список игр: 3 готовых + 3 заглушки
+        game_list = [
+            ("ФАЙТИНГ", lambda: FighterGameView(GamesMenuView)),
+            ("ТАНЧИКИ", lambda: TanksGameView(GamesMenuView)),
+            ("КОСТИ", lambda: DicePokerView(GamesMenuView)),
+            ("СКОРО...", lambda: GamePlaceholderView("Игра №4")),
+            ("СКОРО...", lambda: GamePlaceholderView("Игра №5")),
+            ("СКОРО...", lambda: GamePlaceholderView("Игра №6")),
         ]
 
-        cols = 2
-        start_x = SCREEN_WIDTH // 2 - 160
-        start_y = 420
-        gap_x = 320
-        gap_y = 110
+        # Отрисовка сеткой 2x3
+        for i, (name, view_factory) in enumerate(game_list):
+            column = i % 2
+            row = i // 2
+            x = SCREEN_WIDTH // 2 - 150 + (column * 300)
+            y = 450 - (row * 100)
+            self.buttons.append(Button(x, y, 240, 60, name, lambda v=view_factory: self.window.show_view(v())))
 
-        for i, (name, game_class) in enumerate(games):
-            col = i % cols
-            row = i // cols
-            x = start_x + col * gap_x
-            y = start_y - row * gap_y
-
-            if game_class:
-                action = lambda gc=game_class: self.start_real_game(gc)
-            else:
-                action = lambda n=name: self.start_game(n)
-
-            self.buttons.append(Button(x, y, 220, 65, name, action))
-
-        self.buttons.append(Button(SCREEN_WIDTH // 2, 80, 200, 55, "НАЗАД", self.go_back))
-
-    def start_real_game(self, game_view_factory):
-        self.window.show_view(game_view_factory())
-
-    def start_game(self, name):
-        self.window.show_view(GamePlaceholderView(name))
-
-    def go_back(self):
-        self.window.show_view(MainMenuView())
-
-    def on_show_view(self):
-        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        self.buttons.append(
+            Button(SCREEN_WIDTH // 2, 100, 200, 55, "НАЗАД", lambda: self.window.show_view(MainMenuView()))
+        )
 
     def on_update(self, delta_time):
         self.background.update(delta_time)
@@ -229,19 +162,9 @@ class GamesMenuView(arcade.View):
 
     def on_draw(self):
         self.clear()
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
         self.background.draw()
-
-        arcade.draw_text(
-            "ВЫБОР ИГРЫ",
-            SCREEN_WIDTH // 2,
-            SCREEN_HEIGHT - 50,
-            arcade.color.AQUA,
-            40,
-            anchor_x="center",
-            anchor_y="center",
-            bold=True,
-        )
-
+        arcade.draw_text("ВЫБОР ИГРЫ", SCREEN_WIDTH // 2, 540, arcade.color.AQUA, 36, anchor_x="center", bold=True)
         for btn in self.buttons:
             btn.draw()
 
@@ -252,20 +175,13 @@ class GamesMenuView(arcade.View):
     def on_mouse_press(self, x, y, button, modifiers):
         for btn in self.buttons:
             btn.check_click(x, y, button)
-            arcade.play_sound(self.click_sound)
 
 
 class SettingsView(arcade.View):
     def __init__(self):
         super().__init__()
-        self.buttons = [Button(SCREEN_WIDTH // 2, 100, 200, 55, "НАЗАД", self.go_back)]
-        self.background = AnimatedBackground()
-
-    def go_back(self):
-        self.window.show_view(MainMenuView())
-
-    def on_show_view(self):
-        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        self.background = StableBackground()
+        self.buttons = [Button(SCREEN_WIDTH // 2, 100, 200, 55, "НАЗАД", lambda: self.window.show_view(MainMenuView()))]
 
     def on_update(self, delta_time):
         self.background.update(delta_time)
@@ -274,23 +190,19 @@ class SettingsView(arcade.View):
 
     def on_draw(self):
         self.clear()
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
         self.background.draw()
+        arcade.draw_text("СТАТИСТИКА", SCREEN_WIDTH // 2, 520, arcade.color.GOLD, 40, anchor_x="center", bold=True)
 
-        arcade.draw_text(
-            "НАСТРОЙКИ",
-            SCREEN_WIDTH // 2,
-            SCREEN_HEIGHT - 50,
-            arcade.color.AQUA,
-            40,
-            anchor_x="center",
-            anchor_y="center",
-            bold=True,
-        )
-
-        arcade.draw_text(
-            "В разработке...", SCREEN_WIDTH // 2, 300, arcade.color.YELLOW, 28, anchor_x="center", anchor_y="center"
-        )
-
+        stats = self.window.data_manager.data
+        lines = [
+            f"Танки (уровень): {stats['high_scores']['tanks']}",
+            f"Кости (рекорд): {stats['high_scores']['dice_record']}",
+            f"Побед в файтинге: {stats['player_stats']['wins']}",
+            f"Всего запусков: {stats['total_games']}",
+        ]
+        for i, text in enumerate(lines):
+            arcade.draw_text(text, SCREEN_WIDTH // 2, 400 - i * 50, arcade.color.WHITE, 20, anchor_x="center")
         for btn in self.buttons:
             btn.draw()
 
@@ -304,34 +216,17 @@ class SettingsView(arcade.View):
 
 
 class GamePlaceholderView(arcade.View):
-    def __init__(self, name):
+    def __init__(self, game_name):
         super().__init__()
-        self.name = name
-        self.buttons = [Button(SCREEN_WIDTH // 2, 100, 200, 55, "НАЗАД", self.go_back)]
-
-    def go_back(self):
-        self.window.show_view(GamesMenuView())
-
-    def on_show_view(self):
-        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
-
-    def on_update(self, delta_time):
-        for btn in self.buttons:
-            btn.update(delta_time)
+        self.game_name = game_name
+        self.buttons = [Button(SCREEN_WIDTH // 2, 150, 200, 55, "МЕНЮ", lambda: self.window.show_view(GamesMenuView()))]
 
     def on_draw(self):
         self.clear()
+        arcade.set_background_color(arcade.color.BLACK)
+        arcade.draw_text(self.game_name, SCREEN_WIDTH // 2, 400, arcade.color.WHITE, 40, anchor_x="center")
         arcade.draw_text(
-            self.name, SCREEN_WIDTH // 2, 500, arcade.color.AQUA, 36, anchor_x="center", anchor_y="center", bold=True
-        )
-        arcade.draw_text(
-            "Скоро здесь будет игра!",
-            SCREEN_WIDTH // 2,
-            300,
-            arcade.color.YELLOW,
-            24,
-            anchor_x="center",
-            anchor_y="center",
+            "Эта игра находится в разработке", SCREEN_WIDTH // 2, 330, arcade.color.GRAY, 20, anchor_x="center"
         )
         for btn in self.buttons:
             btn.draw()
@@ -345,56 +240,9 @@ class GamePlaceholderView(arcade.View):
             btn.check_click(x, y, button)
 
 
-class FinalResultsView(arcade.View):
-    def __init__(self, return_view_class):
-        super().__init__()
-        self.return_view = return_view_class
-        self.data_manager = GameDataManager()
-
-    def on_draw(self):
-        self.clear()
-        arcade.set_background_color(arcade.color.DARK_BLUE)
-
-        arcade.draw_text(
-            "ИТОГОВАЯ СТАТИСТИКА", SCREEN_WIDTH // 2, 500, arcade.color.GOLD, 36, anchor_x="center", bold=True
-        )
-
-        data = self.data_manager.data
-        y = 400
-        # Отображение рекордов
-        arcade.draw_text(
-            f"Рекорд в танках: {data['high_scores']['tanks']} ур.",
-            SCREEN_WIDTH // 2,
-            y,
-            arcade.color.WHITE,
-            20,
-            anchor_x="center",
-        )
-        y -= 50
-        arcade.draw_text(
-            f"Рекорд в покере: {data['high_scores']['dice_record']} очков",
-            SCREEN_WIDTH // 2,
-            y,
-            arcade.color.WHITE,
-            20,
-            anchor_x="center",
-        )
-        y -= 50
-        arcade.draw_text(
-            f"Всего игр: {data['total_games']}", SCREEN_WIDTH // 2, y, arcade.color.GRAY, 18, anchor_x="center"
-        )
-
-        arcade.draw_text(
-            "Нажмите ESC для выхода в меню", SCREEN_WIDTH // 2, 100, arcade.color.LIGHT_GRAY, 16, anchor_x="center"
-        )
-
-    def on_key_press(self, key, modifiers):
-        if key == arcade.key.ESCAPE:
-            self.window.show_view(self.return_view())
-
-
 def main():
     window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+    window.data_manager = GameDataManager()
     window.show_view(MainMenuView())
     arcade.run()
 

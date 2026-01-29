@@ -449,6 +449,8 @@ class DicePokerView(arcade.View):
 
         if self.rolls_left < 3 and not self.round_scored:
             score = self.calculate_score()
+            final_score = max(self.scores[1], self.scores[2])
+            is_new_record = self.window.data_manager.record_game("dice", final_score, won=True)
             self.scores[self.curr_player] += score
             self.round_scored = True
 
