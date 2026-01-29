@@ -18,6 +18,59 @@ COMBINATIONS = [
 ]
 
 
+class Button:
+    """Кнопка"""
+
+    def __init__(self, x, y, width, height, text, action=None):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.text = text
+        self.action = action
+        self.hovered = False
+        self.hover_scale = 1.0
+
+    def update(self, delta_time):
+        # Анимация масштаба
+        target = 1.1 if self.hovered else 1.0
+        self.hover_scale += (target - self.hover_scale) * delta_time * 10
+
+    def draw(self):
+        w = self.width * self.hover_scale
+        h = self.height * self.hover_scale
+
+        # Тень
+        arcade.draw_lbwh_rectangle_filled(self.x - w / 2 + 4, self.y - h / 2 - 4, w, h, (0, 0, 0, 100))
+
+        # Кнопка
+        color = arcade.color.SLATE_BLUE if self.hovered else arcade.color.DARK_SLATE_BLUE
+        arcade.draw_lbwh_rectangle_filled(self.x - w / 2, self.y - h / 2, w, h, color)
+
+        # Рамка
+        border_color = arcade.color.GOLD if self.hovered else arcade.color.WHITE
+        arcade.draw_lbwh_rectangle_outline(self.x - w / 2, self.y - h / 2, w, h, border_color, 3)
+
+        # Текст
+        arcade.draw_text(
+            self.text, self.x, self.y, arcade.color.WHITE, font_size=20, anchor_x="center", anchor_y="center", bold=True
+        )
+
+    def check_hover(self, mouse_x, mouse_y):
+        self.hovered = (
+            self.x - self.width / 2 < mouse_x < self.x + self.width / 2
+            and self.y - self.height / 2 < mouse_y < self.y + self.height / 2
+        )
+        return self.hovered
+
+    def check_click(self, mouse_x, mouse_y, button):
+        if button == arcade.MOUSE_BUTTON_LEFT and self.check_hover(mouse_x, mouse_y):
+            if self.action:
+                self.action()
+            return True
+        return False
+
+
 class AnimatedDie:
     """Анимированный кубик - обычный класс"""
 
@@ -137,18 +190,176 @@ class AnimatedDie:
         return abs(mx - self.x) < self.die_size // 2 and abs(my - self.y) < self.die_size // 2
 
 
+class BotPlayer:
+    def __init__(self, difficulty="Medium"):
+        """Сложность:
+        Easy - Легко
+        Medium - Средне
+        Hard - Сложно"""
+        self.difficulty = difficulty
+
+    def decision(self, dice_vals, rolls_left):
+        """Возвращает список индексов кубиков, которые нужно оставить"""
+        counts = {x: dice_vals.count(x) for x in set(dice_vals)}
+
+        if self.difficulty == "Easy":
+            return self._logic_easy()
+        elif self.difficulty == "Medium":
+            return self._logic_medium(dice_vals, counts, rolls_left)
+        else:
+            return self._logic_hard(dice_vals, counts, rolls_left)
+
+    def _logic_easy(self):
+        # Случайный выбор
+        return random.sample(range(5), random.randint(0, 4))
+
+    def _logic_medium(self, values, counts, rolls_left):
+        # Жадный алг: держим пары и сеты, игнорируем стриты
+        for val, count in counts.items():
+            if count >= 2:
+                return [i for i, v in enumerate(values) if v == val]
+
+        threshold = 4 if rolls_left == 1 else 5
+        return [i for i, v in enumerate(values) if v >= threshold]
+
+    def _logic_hard(self, values, counts, rolls_left):
+        """
+        Продвинутая логика:
+        1. Проверяет готовые сильные комбинации.
+        2. Взвешивает шансы (стрит vs пары).
+        3. Учитывает оставшиеся броски.
+        """
+        unique_vals = sorted(list(set(values)))
+
+        # --- 1. готовые комбинации---
+        # Покер (5 одинаковых)
+        if 5 in counts.values():
+            return [0, 1, 2, 3, 4]
+
+        # Стриты (5 подряд)
+        if len(unique_vals) == 5 and (unique_vals[-1] - unique_vals[0] == 4):
+            return [0, 1, 2, 3, 4]
+
+        # Фулл Хаус (3 + 2)
+        if 3 in counts.values() and 2 in counts.values():
+            return [0, 1, 2, 3, 4]
+
+        # --- 2. Отличные позиции ---
+        # Каре (4 одинаковых)
+        for val, count in counts.items():
+            if count == 4:
+                return self._get_indices(values, [val])
+
+        # "Почти стрит" (4 подряд) - высокий приоритет
+        # Ищем последовательность из 4 чисел (например 2,3,4,5)
+        streak_4 = self._find_longest_streak(unique_vals, min_len=4)
+        if streak_4:
+            return self._get_indices(values, streak_4)
+
+        # --- 3. Хорошие позиции ---
+        # Тройка (3 одинаковых)
+        for val, count in counts.items():
+            if count == 3:
+                return self._get_indices(values, [val])
+
+        # Две пары
+        pairs = [k for k, v in counts.items() if v == 2]
+        if len(pairs) == 2:
+            return self._get_indices(values, pairs)
+
+        # --- 4. Рискованные позиции (Только если есть броски) ---
+        # "Почти стрит" (3 подряд) - только если rolls_left > 0
+        if rolls_left > 0:
+            streak_3 = self._find_longest_streak(unique_vals, min_len=3)
+            # Если у нас стрит 3 подряд (напр. 3,4,5), это лучше чем просто пара 2-2
+            if streak_3:
+                # Но если есть пара высоких (5 или 6), лучше оставить пару
+                if not (pairs and max(pairs) >= 5):
+                    return self._get_indices(values, streak_3)
+
+        # Обычная пара
+        if pairs:
+            return self._get_indices(values, [max(pairs)])
+
+        # --- 5. Ничего нет ---
+        # Оставляем 5 или 6
+        high_dice = [v for v in values if v >= 5]
+        if high_dice:
+            return [i for i, v in enumerate(values) if v >= 5]
+
+        # Если всё плохо, оставляем самую большую
+        max_val = max(values)
+        return [values.index(max_val)]
+
+    def _get_indices(self, all_values, target_values):
+        """Возвращает индексы кубиков, значения которых есть в target_values"""
+
+        found_map = {v: 0 for v in target_values}
+
+        res = []
+        for i, v in enumerate(all_values):
+            if v in target_values:
+                # Эвристика: если target_values - это последовательность (стрит), берем по 1 шт каждого
+                is_sequence = len(target_values) > 1 and (
+                    max(target_values) - min(target_values) == len(target_values) - 1
+                )
+
+                if is_sequence:
+                    if found_map[v] == 0:
+                        res.append(i)
+                        found_map[v] += 1
+                else:
+                    # Если пары/тройки - берем все
+                    res.append(i)
+        return res
+
+    def _find_longest_streak(self, unique_sorted_vals, min_len):
+        """Ищет самую длинную последовательность"""
+        best_streak = []
+        curr_streak = [unique_sorted_vals[0]]
+
+        for i in range(1, len(unique_sorted_vals)):
+            if unique_sorted_vals[i] == unique_sorted_vals[i - 1] + 1:
+                curr_streak.append(unique_sorted_vals[i])
+            else:
+                if len(curr_streak) >= len(best_streak):
+                    best_streak = curr_streak
+                curr_streak = [unique_sorted_vals[i]]
+
+        if len(curr_streak) >= len(best_streak):
+            best_streak = curr_streak
+
+        if len(best_streak) >= min_len:
+            return best_streak
+        return None
+
+    def should_stop(self, score):
+        if self.difficulty == "Easy":
+            return score >= 40
+        if self.difficulty == "Medium":
+            return score >= 35
+        return score >= 32
+
+
 class DicePokerView(arcade.View):
     def __init__(self, return_view_class):
         super().__init__()
         self.return_view_class = return_view_class
         self.dice = []
-        self.current_player = 1
+        self.curr_player = 1
         self.rolls_left = 3
         self.scores = {1: 0, 2: 0}
         self.round = 1
         self.max_rounds = 5
         self.game_over = False
         self.round_scored = False
+
+        # Bot
+        self.vs_bot = False
+        self.difficulty = "Medium"
+        self.bot = None
+        self.bot_timer = 0
+
         self.setup()
 
     def setup(self):
@@ -158,12 +369,52 @@ class DicePokerView(arcade.View):
             die = AnimatedDie(start_x + i * 95, 280, 65)
             self.dice.append(die)
 
-        self.current_player = 1
+        self.curr_player = 1
         self.rolls_left = 3
         self.round = 1
         self.game_over = False
         self.scores = {1: 0, 2: 0}
         self.round_scored = False
+
+        self.game_started = False
+        self.bot_timer = 0
+        self.setup_buttons()
+
+    def setup_buttons(self):
+        self.game_buttons = []
+
+        # Кнопки основного игрового процесса
+        self.btn_roll = Button(140, 90, 140, 40, "БРОСИТЬ", self.roll_all_dice)
+        self.btn_score = Button(340, 90, 140, 40, "ЗАПИСАТЬ", self.score_hand)
+        self.btn_exit = Button(540, 90, 140, 40, "ВЫХОД", self.go_back)
+
+        self.game_buttons = [self.btn_roll, self.btn_score, self.btn_exit]
+
+        # Кнопки меню выбора (создаются динамически или заранее)
+        self.menu_buttons = []
+        # Сложность
+        self.btn_easy = Button(
+            SCREEN_WIDTH // 2 - 160, SCREEN_HEIGHT // 2 + 40, 140, 40, "ЛЕГКИЙ", lambda: self.set_diff("Easy")
+        )
+        self.btn_medium = Button(
+            SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40, 140, 40, "СРЕДНИЙ", lambda: self.set_diff("Medium")
+        )
+        self.btn_hard = Button(
+            SCREEN_WIDTH // 2 + 160, SCREEN_HEIGHT // 2 + 40, 140, 40, "СЛОЖНЫЙ", lambda: self.set_diff("Hard")
+        )
+
+        # Режим
+        self.btn_pvp = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 100, 180, 50, "С ДРУГОМ", self.start_pvp)
+        self.btn_pve = Button(SCREEN_WIDTH // 2 + 100, SCREEN_HEIGHT // 2 - 100, 180, 50, "С БОТОМ", self.start_pve)
+
+        self.menu_buttons = [self.btn_easy, self.btn_medium, self.btn_hard, self.btn_pvp, self.btn_pve]
+
+    def on_draw(self):
+        self.clear()
+        if not self.game_started:
+            self.draw_menu()
+        else:
+            self.draw_game()
 
     def roll_all_dice(self):
         if self.rolls_left > 0 and not self.game_over:
@@ -181,14 +432,14 @@ class DicePokerView(arcade.View):
 
         if self.rolls_left < 3 and not self.round_scored:
             score = self.calculate_score()
-            self.scores[self.current_player] += score
+            self.scores[self.curr_player] += score
             self.round_scored = True
 
-            if self.current_player == 1:
-                self.current_player = 2
+            if self.curr_player == 1:
+                self.curr_player = 2
                 self.reset_for_next_turn()
             else:
-                self.current_player = 1
+                self.curr_player = 1
                 self.round += 1
                 if self.round > self.max_rounds:
                     self.game_over = True
@@ -273,7 +524,60 @@ class DicePokerView(arcade.View):
         for die in self.dice:
             die.update(delta_time)
 
-    def on_draw(self):
+        # Анимация кнопок
+        active_buttons = self.menu_buttons if not self.game_started else self.game_buttons
+        for btn in active_buttons:
+            btn.update(delta_time)
+
+        # Если играем с ботом и сейчас его очередь
+        if self.game_started and self.vs_bot and self.curr_player == 2:
+            if not any(d.rolling for d in self.dice):
+                self.bot_timer += delta_time
+
+                # Имитация задержки перед действием
+                if self.rolls_left == 3 and self.bot_timer > 1.0:
+                    self.roll_all_dice()
+                    self.bot_timer = 0
+                elif 0 < self.rolls_left < 3 and self.bot_timer > 1.5:
+                    curr_vals = [d.value for d in self.dice]
+                    _, score, _ = self.get_hand_info()
+
+                    if self.bot.should_stop(score):
+                        self.score_hand()
+                    else:
+                        keep_indices = self.bot.decision(curr_vals, self.rolls_left)
+                        for i in range(5):
+                            self.dice[i].locked = i in keep_indices
+                        self.roll_all_dice()
+                    self.bot_timer = 0
+                elif self.rolls_left == 0 and self.bot_timer > 1.0:
+                    self.score_hand()
+                    self.bot_timer = 0
+
+    def draw_menu(self):
+        arcade.draw_text(
+            "ВЫБОР РЕЖИМА",
+            SCREEN_WIDTH // 2,
+            SCREEN_HEIGHT // 2 + 150,
+            arcade.color.GOLD,
+            34,
+            anchor_x="center",
+            bold=True,
+        )
+
+        # Рисуем анимированные кнопки вместо обычных прямоугольников
+        for btn in self.menu_buttons:
+            # Подсветка выбранной сложности
+            if btn.text in ["ЛЕГКИЙ", "СРЕДНИЙ", "СЛОЖНЫЙ"]:
+                btn.hovered = (
+                    (self.difficulty == "Easy" and btn.text == "ЛЕГКИЙ")
+                    or (self.difficulty == "Medium" and btn.text == "СРЕДНИЙ")
+                    or (self.difficulty == "Hard" and btn.text == "СЛОЖНЫЙ")
+                    or btn.hovered
+                )  # Сохраняем эффект наведения
+            btn.draw()
+
+    def draw_game(self):
         self.clear()
 
         # Игровой стол
@@ -287,8 +591,8 @@ class DicePokerView(arcade.View):
         arcade.draw_lbwh_rectangle_filled(20, 400, 180, 140, (0, 0, 0, 180))
         arcade.draw_lbwh_rectangle_outline(20, 400, 180, 140, arcade.color.GOLD, 2)
 
-        player_color = arcade.color.CYAN if self.current_player == 1 else arcade.color.ORANGE
-        arcade.draw_text(f"Ход: Игрок {self.current_player}", 110, 520, player_color, 15, anchor_x="center", bold=True)
+        player_color = arcade.color.CYAN if self.curr_player == 1 else arcade.color.ORANGE
+        arcade.draw_text(f"Ход: Игрок {self.curr_player}", 110, 520, player_color, 15, anchor_x="center", bold=True)
         arcade.draw_text(f"Раунд: {self.round}/{self.max_rounds}", 110, 490, arcade.color.WHITE, 13, anchor_x="center")
         arcade.draw_text(f"Бросков: {self.rolls_left}", 110, 460, arcade.color.WHITE, 13, anchor_x="center")
 
@@ -326,11 +630,9 @@ class DicePokerView(arcade.View):
         )
 
         # Кнопки
-        self.draw_button(140, 90, 140, 40, "БРОСИТЬ", self.rolls_left > 0 and not self.game_over)
-        self.draw_button(
-            340, 90, 140, 40, "ЗАПИСАТЬ", self.rolls_left < 3 and not self.round_scored and not self.game_over
-        )
-        self.draw_button(540, 90, 140, 40, "ВЫХОД", True)
+        self.btn_roll.draw()
+        self.btn_score.draw()
+        self.btn_exit.draw()
 
         # Панель комбинаций
         self.draw_combinations_panel()
@@ -424,17 +726,22 @@ class DicePokerView(arcade.View):
             anchor_x="center",
         )
 
-    def on_mouse_press(self, x, y, button, modifiers):
-        if button == arcade.MOUSE_BUTTON_LEFT:
-            # Кнопки
-            if 70 < x < 210 and 70 < y < 110:
-                self.roll_all_dice()
-            elif 270 < x < 410 and 70 < y < 110:
-                self.score_hand()
-            elif 470 < x < 610 and 70 < y < 110:
-                self.window.show_view(self.return_view_class())
+    def on_mouse_motion(self, x, y, dx, dy):
+        """Анимации на кнопках"""
+        active_btns = self.menu_buttons if not self.game_started else self.game_buttons
+        for btn in active_btns:
+            btn.check_hover(x, y)
 
-            # Клик по костям
+    def on_mouse_press(self, x, y, button, modifiers):
+        active_btns = self.menu_buttons if not self.game_started else self.game_buttons
+
+        # 1. Проверяем клик
+        for btn in active_btns:
+            if btn.check_click(x, y, button):
+                return
+
+        # 2. Логика игры
+        if self.game_started and not (self.vs_bot and self.curr_player == 2):
             if self.rolls_left < 3 and self.rolls_left > 0:
                 if not any(d.rolling for d in self.dice):
                     for die in self.dice:
@@ -450,3 +757,18 @@ class DicePokerView(arcade.View):
             self.roll_all_dice()
         if key == arcade.key.ENTER:
             self.score_hand()
+
+    def set_diff(self, diff):
+        self.difficulty = diff
+
+    def start_pvp(self):
+        self.vs_bot = False
+        self.game_started = True
+
+    def start_pve(self):
+        self.vs_bot = True
+        self.bot = BotPlayer(self.difficulty)
+        self.game_started = True
+
+    def go_back(self):
+        self.window.show_view(self.return_view_class())

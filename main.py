@@ -9,7 +9,7 @@ SCREEN_TITLE = "Оффлайн игры"
 
 
 class Button:
-    """Кнопка для меню"""
+    """Кнопка"""
 
     def __init__(self, x, y, width, height, text, action=None):
         self.x = x
