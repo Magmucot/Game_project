@@ -2,12 +2,13 @@ import arcade
 import math
 import random
 
+
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
 
-BULLET_SPEED = 400  # пикселей/сек
-TANK_SPEED = 120  # пикселей/сек
-ROTATION_SPEED = 120  # градусов/сек
+BULLET_SPEED = 400  # пиксели
+TANK_SPEED = 120  # пиксели
+ROTATION_SPEED = 120  # градусы
 
 
 class Tank(arcade.Sprite):
@@ -18,7 +19,7 @@ class Tank(arcade.Sprite):
 
         self.center_x = x
         self.center_y = y
-        self.tank_angle = start_angle  # Переименовано чтобы не конфликтовать
+        self.tank_angle = start_angle
         self.color_name = color_name
 
         if color_name == "blue":
@@ -30,7 +31,7 @@ class Tank(arcade.Sprite):
             self.color_dark = arcade.color.DARK_RED
             self.color_light = arcade.color.LIGHT_CORAL
 
-        # Создаём текстуру
+        # Текстура
         self.texture = arcade.make_soft_square_texture(40, self.color_main, 255, 255)
 
         self.hp = 5
@@ -43,33 +44,51 @@ class Tank(arcade.Sprite):
         if self.reload_timer > 0:
             self.reload_timer -= delta_time
 
-    def move_forward(self, delta_time: float):
+    def is_colliding(self, walls):
+        for wall in walls:
+            if wall.hp > 0:
+                dist = math.sqrt((self.center_x - wall.x) ** 2 + (self.center_y - wall.y) ** 2)
+                if dist < 35:
+                    return True
+        return False
+
+    def move_fwrd(self, delta_time: float, walls):
         if not self.alive:
             return
+        old_x, old_y = self.center_x, self.center_y
+
         rad = math.radians(self.tank_angle)
         self.center_x += math.cos(rad) * TANK_SPEED * delta_time
         self.center_y += math.sin(rad) * TANK_SPEED * delta_time
         self._clamp_position()
 
-    def move_backward(self, delta_time: float):
+        if self.is_colliding(walls):
+            self.center_x, self.center_y = old_x, old_y
+
+    def move_bkwrd(self, delta_time: float, walls):
         if not self.alive:
             return
+        old_x, old_y = self.center_x, self.center_y
+
         rad = math.radians(self.tank_angle)
         self.center_x -= math.cos(rad) * TANK_SPEED * delta_time
         self.center_y -= math.sin(rad) * TANK_SPEED * delta_time
         self._clamp_position()
 
-    def rotate_left(self, delta_time: float):
+        if self.is_colliding(walls):
+            self.center_x, self.center_y = old_x, old_y
+
+    def rotate_l(self, delta_time: float):
         if self.alive:
             self.tank_angle += ROTATION_SPEED * delta_time
 
-    def rotate_right(self, delta_time: float):
+    def rotate_r(self, delta_time: float):
         if self.alive:
             self.tank_angle -= ROTATION_SPEED * delta_time
 
     def _clamp_position(self):
-        self.center_x = max(40, min(SCREEN_WIDTH - 40, self.center_x))
-        self.center_y = max(40, min(SCREEN_HEIGHT - 100, self.center_y))
+        self.center_x = max(20, min(SCREEN_WIDTH - 40, self.center_x))
+        self.center_y = max(20, min(SCREEN_HEIGHT - 80, self.center_y))
 
     def shoot(self) -> "Bullet":
         if self.reload_timer <= 0 and self.alive:
@@ -148,7 +167,7 @@ class Tank(arcade.Sprite):
 
 
 class Bullet:
-    """Снаряд - обычный класс без наследования"""
+    """Снаряд"""
 
     def __init__(self, x, y, angle, color, owner):
         self.x = x
@@ -190,13 +209,13 @@ class Bullet:
 
 
 class Wall:
-    """Стена - обычный класс без наследования"""
+    """Стена"""
 
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.hp = 3
-        self.wall_size = 40  # Переименовано!
+        self.wall_size = 40
 
     def draw(self):
         if self.hp <= 0:
@@ -295,8 +314,8 @@ class TanksGameView(arcade.View):
         self.setup()
 
     def setup(self):
-        self.tank1 = Tank(100, 300, "blue", 0)
-        self.tank2 = Tank(800, 300, "red", 180)
+        self.tank1 = Tank(60, 60, "red", 0)
+        self.tank2 = Tank(SCREEN_WIDTH - 60, SCREEN_HEIGHT - 140, "blue", 180)
 
         self.bullets = []
         self.walls = []
@@ -306,20 +325,21 @@ class TanksGameView(arcade.View):
         self.winner = None
 
         # Стены
-        wall_positions = [
-            (450, 150),
-            (450, 200),
-            (450, 400),
-            (450, 450),
-            (200, 150),
-            (250, 150),
-            (650, 450),
-            (700, 450),
-            (300, 300),
-            (600, 300),
-        ]
-        for wx, wy in wall_positions:
-            self.walls.append(Wall(wx, wy))
+        wall_size = 40
+
+        num_cols = SCREEN_WIDTH // wall_size
+        num_rows = (SCREEN_HEIGHT - 60) // wall_size
+
+        for col in range(4, num_cols - 4):
+            walls_line = random.randint(1, 3)
+
+            possible_rows = random.sample(range(1, num_rows - 1), walls_line)
+
+            for row in possible_rows:
+                # Рассчитываем координаты центра стены
+                wx = col * wall_size + wall_size // 2
+                wy = row * wall_size + wall_size // 2
+                self.walls.append(Wall(wx, wy))
 
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_TAN)
@@ -351,9 +371,9 @@ class TanksGameView(arcade.View):
         # UI
         arcade.draw_lbwh_rectangle_filled(0, SCREEN_HEIGHT - 60, SCREEN_WIDTH, 60, (30, 30, 30, 230))
 
-        self.draw_top_bar(180, SCREEN_HEIGHT - 30, self.tank1.hp, self.tank1.max_hp, arcade.color.BLUE, "ИГРОК 1")
+        self.draw_top_bar(180, SCREEN_HEIGHT - 30, self.tank1.hp, self.tank1.max_hp, arcade.color.RED, "ИГРОК 1")
         self.draw_top_bar(
-            SCREEN_WIDTH - 180, SCREEN_HEIGHT - 30, self.tank2.hp, self.tank2.max_hp, arcade.color.RED, "ИГРОК 2"
+            SCREEN_WIDTH - 180, SCREEN_HEIGHT - 30, self.tank2.hp, self.tank2.max_hp, arcade.color.BLUE, "ИГРОК 2"
         )
 
         arcade.draw_text("WASD + SPACE", 180, SCREEN_HEIGHT - 55, arcade.color.CYAN, 10, anchor_x="center")
@@ -422,23 +442,23 @@ class TanksGameView(arcade.View):
 
         # Управление танком 1
         if arcade.key.W in self.keys_pressed:
-            self.tank1.move_forward(delta_time)
+            self.tank1.move_fwrd(delta_time, self.walls)
         if arcade.key.S in self.keys_pressed:
-            self.tank1.move_backward(delta_time)
+            self.tank1.move_bkwrd(delta_time, self.walls)
         if arcade.key.A in self.keys_pressed:
-            self.tank1.rotate_left(delta_time)
+            self.tank1.rotate_l(delta_time)
         if arcade.key.D in self.keys_pressed:
-            self.tank1.rotate_right(delta_time)
+            self.tank1.rotate_r(delta_time)
 
         # Управление танком 2
         if arcade.key.UP in self.keys_pressed:
-            self.tank2.move_forward(delta_time)
+            self.tank2.move_fwrd(delta_time, self.walls)
         if arcade.key.DOWN in self.keys_pressed:
-            self.tank2.move_backward(delta_time)
+            self.tank2.move_bkwrd(delta_time, self.walls)
         if arcade.key.LEFT in self.keys_pressed:
-            self.tank2.rotate_left(delta_time)
+            self.tank2.rotate_l(delta_time)
         if arcade.key.RIGHT in self.keys_pressed:
-            self.tank2.rotate_right(delta_time)
+            self.tank2.rotate_r(delta_time)
 
         self.tank1.update_tank(delta_time)
         self.tank2.update_tank(delta_time)
@@ -462,11 +482,11 @@ class TanksGameView(arcade.View):
 
             # Танки
             if bullet not in bullets_to_remove:
-                if bullet.owner != "blue" and bullet.check_hit_tank(self.tank1):
+                if bullet.owner == "blue" and bullet.check_hit_tank(self.tank1):
                     self.tank1.hit()
                     bullets_to_remove.append(bullet)
                     self.explosions.append(Explosion(bullet.x, bullet.y, big=True))
-                elif bullet.owner != "red" and bullet.check_hit_tank(self.tank2):
+                elif bullet.owner == "red" and bullet.check_hit_tank(self.tank2):
                     self.tank2.hit()
                     bullets_to_remove.append(bullet)
                     self.explosions.append(Explosion(bullet.x, bullet.y, big=True))
@@ -489,6 +509,8 @@ class TanksGameView(arcade.View):
             self.game_over = True
             self.winner = "ИГРОК 1"
             self.explosions.append(Explosion(self.tank2.center_x, self.tank2.center_y, big=True))
+
+        self.walls = [w for w in self.walls if w.hp > 0]
 
     def on_key_press(self, key, modifiers):
         self.keys_pressed.add(key)

@@ -1,5 +1,4 @@
 import arcade
-import math
 import enum
 import random
 
@@ -239,7 +238,7 @@ class Fighter(arcade.Sprite):
 
 
 class HitParticle:
-    """Частица при ударе - НЕ наследуется от Sprite чтобы избежать конфликтов"""
+    """Частица при ударе"""
 
     def __init__(self, x, y, color):
         self.x = x
@@ -414,27 +413,26 @@ class FighterGameView(arcade.View):
         arcade.draw_text(f"{label}: {hp}", x, y, arcade.color.WHITE, 14, anchor_x="center", anchor_y="center", bold=True)
 
     def on_update(self, delta_time):
-        # Ограничиваем delta_time
-        delta_time = min(delta_time, 0.05)
+        delta_time = min(delta_time, 0.05)  # граница дельты
 
         if self.game_over:
             return
 
-        # Управление P1
-        direction1 = 0
+        # P1
+        direct1 = 0
         if arcade.key.A in self.keys_pressed:
-            direction1 -= 1
+            direct1 -= 1
         if arcade.key.D in self.keys_pressed:
-            direction1 += 1
-        self.player1.move(direction1)
+            direct1 += 1
+        self.player1.move(direct1)
 
-        # Управление P2
-        direction2 = 0
+        # P2
+        direct2 = 0
         if arcade.key.LEFT in self.keys_pressed:
-            direction2 -= 1
+            direct2 -= 1
         if arcade.key.RIGHT in self.keys_pressed:
-            direction2 += 1
-        self.player2.move(direction2)
+            direct2 += 1
+        self.player2.move(direct2)
 
         # Обновление
         self.player1.update_fighter(delta_time)
@@ -446,13 +444,11 @@ class FighterGameView(arcade.View):
         self.particles = [p for p in self.particles if p.active]
 
         # Проверка ударов
-        if self.player1.can_hit(self.player2):
-            if self.player2.take_damage(ATTACK_DAMAGE):
-                self.spawn_particles(self.player2.center_x, self.player2.center_y + 20, arcade.color.RED)
+        if self.player1.can_hit(self.player2) and self.player2.take_damage(ATTACK_DAMAGE):
+            self.spawn_particles(self.player2.center_x, self.player2.center_y + 20, arcade.color.RED)
 
-        if self.player2.can_hit(self.player1):
-            if self.player1.take_damage(ATTACK_DAMAGE):
-                self.spawn_particles(self.player1.center_x, self.player1.center_y + 20, arcade.color.BLUE)
+        if self.player2.can_hit(self.player1) and self.player1.take_damage(ATTACK_DAMAGE):
+            self.spawn_particles(self.player1.center_x, self.player1.center_y + 20, arcade.color.BLUE)
 
         # Победа
         if self.player1.hp <= 0:
@@ -464,20 +460,17 @@ class FighterGameView(arcade.View):
 
     def on_key_press(self, key, modifiers):
         self.keys_pressed.add(key)
-
-        if key == arcade.key.W:
-            self.player1.jump()
-        if key == arcade.key.UP:
-            self.player2.jump()
-        if key == arcade.key.SPACE:
-            self.player1.attack()
-        if key == arcade.key.ENTER:
-            self.player2.attack()
-
-        if key == arcade.key.ESCAPE:
-            self.window.show_view(self.return_view_class())
+        actions = {
+            arcade.key.W: lambda: self.player1.jump(),
+            arcade.key.UP: lambda: self.player2.jump(),
+            arcade.key.SPACE: lambda: self.player1.attack(),
+            arcade.key.ENTER: lambda: self.player2.attack(),
+            arcade.key.ESCAPE: lambda: self.window.show_view(self.return_view_class()),
+        }
         if key == arcade.key.R and self.game_over:
             self.setup()
+        if key in (actions.keys()):
+            actions[key]()
 
     def on_key_release(self, key, modifiers):
         self.keys_pressed.discard(key)

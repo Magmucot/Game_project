@@ -1,6 +1,7 @@
 import arcade
 import math
 import random
+from games import FighterGameView, TanksGameView, DicePokerView
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
@@ -21,7 +22,7 @@ class Button:
         self.hover_scale = 1.0
 
     def update(self, delta_time):
-        # Плавная анимация масштаба
+        # Анимация масштаба
         target = 1.1 if self.hovered else 1.0
         self.hover_scale += (target - self.hover_scale) * delta_time * 10
 
@@ -69,7 +70,7 @@ class BackgroundParticle:
     def reset(self):
         self.x = random.uniform(0, SCREEN_WIDTH)
         self.y = random.uniform(0, SCREEN_HEIGHT)
-        self.speed = random.uniform(30, 80)  # пикселей в секунду
+        self.speed = random.uniform(30, 80)
         self.size = random.uniform(2, 5)
         self.alpha = random.randint(50, 150)
 
@@ -146,7 +147,7 @@ class MainMenuView(arcade.View):
         )
 
         arcade.draw_text(
-            "Коллекция игр для двоих",
+            "Небольшая коллекция игр",
             SCREEN_WIDTH // 2,
             420,
             arcade.color.LIGHT_GRAY,
@@ -175,8 +176,6 @@ class GamesMenuView(arcade.View):
         self.setup_buttons()
 
     def setup_buttons(self):
-        from games import FighterGameView, TanksGameView, DicePokerView
-
         games = [
             ("Игра 1", None),
             ("Игра 2", None),
