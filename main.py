@@ -49,7 +49,7 @@ class Button:
 
 class BackgroundParticle:
     def __init__(self):
-        self.reset(random.uniform(0, SCREEN_HEIGHT))
+        self.reset(random.randint(0, SCREEN_HEIGHT))
 
     def reset(self, start_y=SCREEN_HEIGHT):
         self.x = random.uniform(0, SCREEN_WIDTH)
@@ -90,8 +90,8 @@ class MainMenuView(arcade.View):
             Button(SCREEN_WIDTH // 2, 220, 280, 70, "СТАТИСТИКА", self.go_to_settings),
         ]
         try:
-            self.click_sound = arcade.load_sound(":resources:sounds/hit1.wav")
-        except:
+            self.click_sound = arcade.load_sound("assets/click.wav")
+        except Exception:
             self.click_sound = None
 
     def go_to_games(self):

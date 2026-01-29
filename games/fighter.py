@@ -281,6 +281,11 @@ class FighterGameView(arcade.View):
         self.winner = None
         self.keys_pressed = set()
 
+        try:
+            self.hit_sound = arcade.load_sound(":resources:sounds/hit1.wav")
+        except Exception:
+            self.hit_sound = None
+
         self.setup()
 
     def setup(self):
@@ -445,9 +450,13 @@ class FighterGameView(arcade.View):
 
         # Проверка ударов
         if self.player1.can_hit(self.player2) and self.player2.take_damage(ATTACK_DAMAGE):
+            if self.hit_sound:
+                arcade.play_sound(self.hit_sound)
             self.spawn_particles(self.player2.center_x, self.player2.center_y + 20, arcade.color.RED)
 
         if self.player2.can_hit(self.player1) and self.player1.take_damage(ATTACK_DAMAGE):
+            if self.hit_sound:
+                arcade.play_sound(self.hit_sound)
             self.spawn_particles(self.player1.center_x, self.player1.center_y + 20, arcade.color.BLUE)
 
         # Победа

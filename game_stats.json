@@ -1,0 +1,17 @@
+{
+  "high_scores": {
+    "tanks": 0,
+    "fighter_wins": 0,
+    "dice_record": 75
+  },
+  "total_games": 11,
+  "player_stats": {
+    "wins": 0,
+    "losses": 0
+  },
+  "achievements": [],
+  "settings": {
+    "volume": 1.0,
+    "difficulty": "Medium"
+  }
+}

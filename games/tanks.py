@@ -310,6 +310,10 @@ class TanksGameView(arcade.View):
         self.game_over = False
         self.winner = None
         self.keys_pressed = set()
+        try:
+            self.hit_sound = arcade.load_sound(":resources:sounds/hit1.wav")
+        except Exception:
+            self.hit_sound = None
 
         self.setup()
 
@@ -518,11 +522,15 @@ class TanksGameView(arcade.View):
         if key == arcade.key.SPACE:
             bullet = self.tank1.shoot()
             if bullet:
+                if self.hit_sound:
+                    arcade.play_sound(self.hit_sound)
                 self.bullets.append(bullet)
 
         if key == arcade.key.ENTER:
             bullet = self.tank2.shoot()
             if bullet:
+                if self.hit_sound:
+                    arcade.play_sound(self.hit_sound)
                 self.bullets.append(bullet)
 
         if key == arcade.key.ESCAPE:
