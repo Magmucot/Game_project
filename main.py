@@ -107,6 +107,7 @@ class MainMenuView(arcade.View):
         self.title_offset = 0.0
         self.time = 0.0
         self.setup_buttons()
+        self.click_sound = arcade.load_sound("assets/click.wav")
 
     def setup_buttons(self):
         center_x = SCREEN_WIDTH // 2
@@ -166,6 +167,7 @@ class MainMenuView(arcade.View):
     def on_mouse_press(self, x, y, button, modifiers):
         for btn in self.buttons:
             btn.check_click(x, y, button)
+            arcade.play_sound(self.click_sound)
 
 
 class GamesMenuView(arcade.View):
@@ -173,6 +175,8 @@ class GamesMenuView(arcade.View):
         super().__init__()
         self.buttons = []
         self.background = AnimatedBackground()
+        self.click_sound = arcade.load_sound("assets/click.wav")
+
         self.setup_buttons()
 
     def setup_buttons(self):
@@ -248,6 +252,7 @@ class GamesMenuView(arcade.View):
     def on_mouse_press(self, x, y, button, modifiers):
         for btn in self.buttons:
             btn.check_click(x, y, button)
+            arcade.play_sound(self.click_sound)
 
 
 class SettingsView(arcade.View):
@@ -338,6 +343,54 @@ class GamePlaceholderView(arcade.View):
     def on_mouse_press(self, x, y, button, modifiers):
         for btn in self.buttons:
             btn.check_click(x, y, button)
+
+
+class FinalResultsView(arcade.View):
+    def __init__(self, return_view_class):
+        super().__init__()
+        self.return_view = return_view_class
+        self.data_manager = GameDataManager()
+
+    def on_draw(self):
+        self.clear()
+        arcade.set_background_color(arcade.color.DARK_BLUE)
+
+        arcade.draw_text(
+            "ИТОГОВАЯ СТАТИСТИКА", SCREEN_WIDTH // 2, 500, arcade.color.GOLD, 36, anchor_x="center", bold=True
+        )
+
+        data = self.data_manager.data
+        y = 400
+        # Отображение рекордов
+        arcade.draw_text(
+            f"Рекорд в танках: {data['high_scores']['tanks']} ур.",
+            SCREEN_WIDTH // 2,
+            y,
+            arcade.color.WHITE,
+            20,
+            anchor_x="center",
+        )
+        y -= 50
+        arcade.draw_text(
+            f"Рекорд в покере: {data['high_scores']['dice_record']} очков",
+            SCREEN_WIDTH // 2,
+            y,
+            arcade.color.WHITE,
+            20,
+            anchor_x="center",
+        )
+        y -= 50
+        arcade.draw_text(
+            f"Всего игр: {data['total_games']}", SCREEN_WIDTH // 2, y, arcade.color.GRAY, 18, anchor_x="center"
+        )
+
+        arcade.draw_text(
+            "Нажмите ESC для выхода в меню", SCREEN_WIDTH // 2, 100, arcade.color.LIGHT_GRAY, 16, anchor_x="center"
+        )
+
+    def on_key_press(self, key, modifiers):
+        if key == arcade.key.ESCAPE:
+            self.window.show_view(self.return_view())
 
 
 def main():

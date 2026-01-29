@@ -1,6 +1,7 @@
 import arcade
 import random
 import math
+from data_manager import GameDataManager
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
@@ -30,6 +31,7 @@ class Button:
         self.action = action
         self.hovered = False
         self.hover_scale = 1.0
+        self.click_sound = arcade.load_sound(":resources:sounds/hit1.wav")
 
     def update(self, delta_time):
         # Анимация масштаба
@@ -353,6 +355,10 @@ class DicePokerView(arcade.View):
         self.max_rounds = 5
         self.game_over = False
         self.round_scored = False
+        self.data_manager = GameDataManager()
+
+        self.sounds = {}
+        self.load_sounds()
 
         # Bot
         self.vs_bot = False
@@ -361,6 +367,14 @@ class DicePokerView(arcade.View):
         self.bot_timer = 0
 
         self.setup()
+
+    def load_sounds(self):
+        try:
+            self.sounds["roll"] = arcade.load_sound("assets/roll.wav")
+            self.sounds["click"] = arcade.load_sound("assets/click.wav")
+            self.sounds["win"] = arcade.load_sound("assets/win.wav")
+        except Exception:
+            pass
 
     def setup(self):
         self.dice = []
@@ -418,6 +432,9 @@ class DicePokerView(arcade.View):
 
     def roll_all_dice(self):
         if self.rolls_left > 0 and not self.game_over:
+            if "roll" in self.sounds:
+                arcade.play_sound(self.sounds["roll"])
+
             any_rolled = False
             for die in self.dice:
                 if not die.locked:
@@ -445,6 +462,11 @@ class DicePokerView(arcade.View):
                     self.game_over = True
                 else:
                     self.reset_for_next_turn()
+
+        if self.game_over:
+            is_record = self.data_manager.record_game("dice", self.scores[1], self.scores[1] > self.scores[2])
+            if is_record and "win" in self.sounds:
+                arcade.play_sound(self.sounds["win"])
 
     def reset_for_next_turn(self):
         self.rolls_left = 3
