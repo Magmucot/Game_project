@@ -197,6 +197,7 @@ class SettingsView(arcade.View):
         lines = [
             # f"Танки (уровень): {stats['high_scores']['tanks']}",
             f"Кости (рекорд): {stats['high_scores']['dice_record']}",
+            f"Змейка(рекорд): {stats['high_scores']['snake']}"
             # f"Побед в файтинге: {stats['player_stats']['wins']}",
             f"Всего запусков: {stats['total_games']}",
         ]

@@ -1,9 +1,11 @@
 import arcade
 import random
 
-SCREEN_WIDTH = 600
+SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
 CELL_SIZE = 20
+COLOR_LIGHT = (170, 215, 81)
+COLOR_DARK = (162, 209, 73)
 
 
 class SnakeGameView(arcade.View):
@@ -16,6 +18,7 @@ class SnakeGameView(arcade.View):
         self.game_over = False
         self.score = 0
         self.speed_timer = 0
+        self.stats_recorded = False
 
     def on_show_view(self):
         arcade.set_background_color(arcade.color.ALMOND)
@@ -30,29 +33,49 @@ class SnakeGameView(arcade.View):
     def on_draw(self):
         self.clear()
 
+        # --- ШАХМАТНОЕ ПОЛЕ ---
+        for row in range(SCREEN_HEIGHT // CELL_SIZE):
+            for col in range(SCREEN_WIDTH // CELL_SIZE):
+                if (row + col) % 2 == 0:
+                    color = COLOR_LIGHT
+                else:
+                    color = COLOR_DARK
+
+                arcade.draw_lbwh_rectangle_filled(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE, color)
+        # -----------------------------
+
+        # Отрисовка змейки
         for x, y in self.snake:
             arcade.draw_lbwh_rectangle_filled(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE, arcade.color.GREEN)
 
+        # Отрисовка яблока
         ax, ay = self.apple
         arcade.draw_lbwh_rectangle_filled(ax * CELL_SIZE, ay * CELL_SIZE, CELL_SIZE, CELL_SIZE, arcade.color.RED)
 
-        arcade.draw_text(f"Score: {self.score}", 10, SCREEN_HEIGHT - 30, arcade.color.BLACK, 18)
+        high_score = self.window.data_manager.get_high_score("snake")
+        arcade.draw_text(f"Счет: {self.score}", 10, SCREEN_HEIGHT - 30, arcade.color.BLACK, 18)
+        arcade.draw_text(f"Лучший: {high_score}", 10, SCREEN_HEIGHT - 55, arcade.color.GRAY, 14)
 
         if self.game_over:
+            arcade.draw_lbwh_rectangle_filled(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, (0, 0, 0, 150))
             arcade.draw_text(
-                "GAME OVER", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20, arcade.color.RED, 32, anchor_x="center"
+                "ВЫ ПРОИГРАЛИ!", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20, arcade.color.WHITE, 32, anchor_x="center"
             )
             arcade.draw_text(
-                f"Final Score: {self.score}",
+                f"Финальный результат: {self.score}",
                 SCREEN_WIDTH / 2,
                 SCREEN_HEIGHT / 2 - 20,
-                arcade.color.BLACK,
+                arcade.color.WHITE,
                 24,
                 anchor_x="center",
             )
 
     def on_update(self, delta_time):
         if self.game_over:
+            # 3. Обращаемся к менеджеру в окне при окончании игры
+            if not self.stats_recorded:
+                self.window.data_manager.record_game("snake", self.score)
+                self.stats_recorded = True
             return
 
         self.speed_timer += delta_time
