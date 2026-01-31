@@ -7,8 +7,9 @@ CELL_SIZE = 20
 
 
 class SnakeGameView(arcade.View):
-    def __init__(self):
+    def __init__(self, return_view_cls):
         super().__init__()
+        self.return_view_cls = return_view_cls
         self.snake = [(10, 10), (9, 10), (8, 10)]
         self.direction = (1, 0)
         self.apple = self.spawn_apple()
@@ -38,11 +39,17 @@ class SnakeGameView(arcade.View):
         arcade.draw_text(f"Score: {self.score}", 10, SCREEN_HEIGHT - 30, arcade.color.BLACK, 18)
 
         if self.game_over:
-            arcade.draw_text("GAME OVER", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20, arcade.color.RED, 32,
-                             anchor_x="center")
-            arcade.draw_text(f"Final Score: {self.score}", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 20, arcade.color.BLACK,
-                             24,
-                             anchor_x="center")
+            arcade.draw_text(
+                "GAME OVER", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20, arcade.color.RED, 32, anchor_x="center"
+            )
+            arcade.draw_text(
+                f"Final Score: {self.score}",
+                SCREEN_WIDTH / 2,
+                SCREEN_HEIGHT / 2 - 20,
+                arcade.color.BLACK,
+                24,
+                anchor_x="center",
+            )
 
     def on_update(self, delta_time):
         if self.game_over:
@@ -56,9 +63,11 @@ class SnakeGameView(arcade.View):
         head = self.snake[0]
         new_head = (head[0] + self.direction[0], head[1] + self.direction[1])
 
-        if (new_head in self.snake or
-                not (0 <= new_head[0] < SCREEN_WIDTH // CELL_SIZE) or
-                not (0 <= new_head[1] < SCREEN_HEIGHT // CELL_SIZE)):
+        if (
+            new_head in self.snake
+            or not (0 <= new_head[0] < SCREEN_WIDTH // CELL_SIZE)
+            or not (0 <= new_head[1] < SCREEN_HEIGHT // CELL_SIZE)
+        ):
             self.game_over = True
             return
 
@@ -71,11 +80,13 @@ class SnakeGameView(arcade.View):
             self.snake.pop()
 
     def on_key_press(self, key, modifiers):
-        if key == arcade.key.W and self.direction != (0, -1):
+        if key in (arcade.key.W, arcade.key.UP) and self.direction != (0, -1):
             self.direction = (0, 1)
-        elif key == arcade.key.S and self.direction != (0, 1):
+        elif key in (arcade.key.S, arcade.key.DOWN) and self.direction != (0, 1):
             self.direction = (0, -1)
-        elif key == arcade.key.A and self.direction != (1, 0):
+        elif key in (arcade.key.A, arcade.key.LEFT) and self.direction != (1, 0):
             self.direction = (-1, 0)
-        elif key == arcade.key.D and self.direction != (-1, 0):
+        elif key in (arcade.key.D, arcade.key.RIGHT) and self.direction != (-1, 0):
             self.direction = (1, 0)
+        if key == arcade.key.ESCAPE:
+            self.window.show_view(self.return_view_cls())

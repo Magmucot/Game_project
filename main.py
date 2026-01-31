@@ -1,7 +1,7 @@
 import arcade
 import math
 import random
-from games import FighterGameView, TanksGameView, DicePokerView
+from games import FighterGameView, TanksGameView, DicePokerView, MinesGameView, SnakeGameView
 from data_manager import GameDataManager
 
 SCREEN_WIDTH = 900
@@ -133,14 +133,13 @@ class GamesMenuView(arcade.View):
 
     def setup_buttons(self):
         self.buttons = []
-        # Список игр: 3 готовых + 3 заглушки
         game_list = [
-            ("ФАЙТИНГ", lambda: FighterGameView(GamesMenuView)),
-            ("ТАНЧИКИ", lambda: TanksGameView(GamesMenuView)),
-            ("КОСТИ", lambda: DicePokerView(GamesMenuView)),
-            ("СКОРО...", lambda: GamePlaceholderView("Игра №4")),
-            ("СКОРО...", lambda: GamePlaceholderView("Игра №5")),
-            ("СКОРО...", lambda: GamePlaceholderView("Игра №6")),
+            ("Файтинг", lambda: FighterGameView(GamesMenuView)),
+            ("Танчики", lambda: TanksGameView(GamesMenuView)),
+            ("Кости", lambda: DicePokerView(GamesMenuView)),
+            ("Минер", lambda: MinesGameView(GamesMenuView)),
+            ("Змейка", lambda: SnakeGameView(GamesMenuView)),
+            ("Шахматы", lambda: GamePlaceholderView("Шахматы")),
         ]
 
         # Отрисовка сеткой 2x3
@@ -196,9 +195,9 @@ class SettingsView(arcade.View):
 
         stats = self.window.data_manager.data
         lines = [
-            f"Танки (уровень): {stats['high_scores']['tanks']}",
+            # f"Танки (уровень): {stats['high_scores']['tanks']}",
             f"Кости (рекорд): {stats['high_scores']['dice_record']}",
-            f"Побед в файтинге: {stats['player_stats']['wins']}",
+            # f"Побед в файтинге: {stats['player_stats']['wins']}",
             f"Всего запусков: {stats['total_games']}",
         ]
         for i, text in enumerate(lines):

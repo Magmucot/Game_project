@@ -269,9 +269,9 @@ class HitParticle:
 
 
 class FighterGameView(arcade.View):
-    def __init__(self, return_view_class):
+    def __init__(self, return_view_cls):
         super().__init__()
-        self.return_view_class = return_view_class
+        self.return_view_cls = return_view_cls
 
         self.player1: Fighter = None
         self.player2: Fighter = None
@@ -474,7 +474,7 @@ class FighterGameView(arcade.View):
             arcade.key.UP: lambda: self.player2.jump(),
             arcade.key.SPACE: lambda: self.player1.attack(),
             arcade.key.ENTER: lambda: self.player2.attack(),
-            arcade.key.ESCAPE: lambda: self.window.show_view(self.return_view_class()),
+            arcade.key.ESCAPE: lambda: self.window.show_view(self.return_view_cls()),
         }
         if key == arcade.key.R and self.game_over:
             self.setup()

@@ -344,9 +344,9 @@ class BotPlayer:
 
 
 class DicePokerView(arcade.View):
-    def __init__(self, return_view_class):
+    def __init__(self, return_view_cls):
         super().__init__()
-        self.return_view_class = return_view_class
+        self.return_view_cls = return_view_cls
         self.dice = []
         self.curr_player = 1
         self.rolls_left = 3
@@ -774,7 +774,7 @@ class DicePokerView(arcade.View):
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.ESCAPE:
-            self.window.show_view(self.return_view_class())
+            self.window.show_view(self.return_view_cls())
         if key == arcade.key.R and self.game_over:
             self.setup()
         if key == arcade.key.SPACE:
@@ -795,4 +795,4 @@ class DicePokerView(arcade.View):
         self.game_started = True
 
     def go_back(self):
-        self.window.show_view(self.return_view_class())
+        self.window.show_view(self.return_view_cls())

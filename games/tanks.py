@@ -12,7 +12,7 @@ ROTATION_SPEED = 120  # градусы
 
 
 class Tank(arcade.Sprite):
-    """Танк - наследуется от arcade.Sprite"""
+    """Танк"""
 
     def __init__(self, x, y, color_name, start_angle=0):
         super().__init__()
@@ -297,9 +297,9 @@ class Explosion:
 
 
 class TanksGameView(arcade.View):
-    def __init__(self, return_view_class):
+    def __init__(self, return_view_cls):
         super().__init__()
-        self.return_view_class = return_view_class
+        self.return_view_cls = return_view_cls
 
         self.tank1: Tank = None
         self.tank2: Tank = None
@@ -534,7 +534,7 @@ class TanksGameView(arcade.View):
                 self.bullets.append(bullet)
 
         if key == arcade.key.ESCAPE:
-            self.window.show_view(self.return_view_class())
+            self.window.show_view(self.return_view_cls())
 
         if key == arcade.key.R and self.game_over:
             self.setup()

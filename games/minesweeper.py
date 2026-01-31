@@ -2,9 +2,6 @@ import arcade
 import random
 import time
 
-SCREEN_WIDTH = 900
-SCREEN_HEIGHT = 600
-TITLE = "Сапёр"
 
 ROWS = 12
 COLS = 16
@@ -15,9 +12,10 @@ WIDTH = COLS * CELL
 HEIGHT = ROWS * CELL
 
 
-class MinesGameView(arcade.Window):
-    def __init__(self):
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, TITLE)
+class MinesGameView(arcade.View):
+    def __init__(self, return_view_cls):
+        super().__init__()
+        self.return_view_cls = return_view_cls
         arcade.set_background_color(arcade.color.ASH_GREY)
         self.setup()
 
@@ -118,13 +116,24 @@ class MinesGameView(arcade.Window):
             arcade.draw_text(
                 f"Time: {int(self.elapsed)}s", LEFT + WIDTH + 20, BOTTOM + HEIGHT - 50, arcade.color.LIGHT_GRAY, 14
             )
-        arcade.draw_text("Left click open / Right click flag. R - restart", LEFT, 12, arcade.color.LIGHT_GRAY, 12)
+        arcade.draw_text(
+            "Левый клик - открыть / Правый клик - флаг. R - перезапуск, ESC - выход",
+            LEFT,
+            12,
+            arcade.color.LIGHT_GRAY,
+            12,
+        )
         if self.game_over:
-            txt = "YOU WIN!" if self.win else "BOOM! YOU LOST"
+            txt = "ВЫ ВЫИГРАЛИ!" if self.win else "BOOM! ТЫ ПРОИГРАЛ"
             arcade.draw_lbwh_rectangle_filled(LEFT + WIDTH / 2 - 200, BOTTOM + HEIGHT / 2 - 40, 400, 80, (0, 0, 0, 200))
             arcade.draw_text(txt, LEFT + WIDTH / 2, BOTTOM + HEIGHT / 2 + 8, arcade.color.GOLD, 28, anchor_x="center")
             arcade.draw_text(
-                "R - restart", LEFT + WIDTH / 2, BOTTOM + HEIGHT / 2 - 18, arcade.color.LIGHT_GRAY, 12, anchor_x="center"
+                "R - перезапуск, ESC - выход",
+                LEFT + WIDTH / 2,
+                BOTTOM + HEIGHT / 2 - 18,
+                arcade.color.LIGHT_GRAY,
+                12,
+                anchor_x="center",
             )
 
     def on_update(self, dt):
@@ -167,3 +176,5 @@ class MinesGameView(arcade.Window):
     def on_key_press(self, key, modifiers):
         if key == arcade.key.R:
             self.setup()
+        if key == arcade.key.ESCAPE:
+            self.window.show_view(self.return_view_cls())
