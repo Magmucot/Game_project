@@ -9,7 +9,7 @@ WHITE = 1
 BLACK = -1
 
 
-class ChessGameView(arcade.Sprite):
+class ChessPiece(arcade.Sprite):
     def __init__(self, kind, player, row, col):
         img = f"assets/pieces/{'w' if player == WHITE else 'b'}{kind}.png"
         super().__init__(img, scale=PIECE_SIZE / TILE)
@@ -25,9 +25,11 @@ class ChessGameView(arcade.Sprite):
         self.center_y = (BOARD - 1 - self.row) * TILE + TILE // 2
 
 
-class ChessGame(arcade.View):
-    def __init__(self):
+class ChessGameView(arcade.View):
+    def __init__(self, return_view_cls):
         super().__init__()
+        self.return_view_cls = return_view_cls
+
         self.turn = WHITE
         self.selected_piece = None
         self.pieces = arcade.SpriteList()
@@ -68,52 +70,55 @@ class ChessGame(arcade.View):
             arcade.draw_lbwh_rectangle_outline(
                 self.selected_piece.col * TILE,
                 (BOARD - 1 - self.selected_piece.row) * TILE,
-                TILE, TILE,
-                arcade.color.YELLOW, 3
+                TILE,
+                TILE,
+                arcade.color.YELLOW,
+                3,
             )
 
         if self.check_king:
             arcade.draw_lbwh_rectangle_outline(
-                self.check_king.col * TILE,
-                (BOARD - 1 - self.check_king.row) * TILE,
-                TILE, TILE,
-                arcade.color.RED, 4
+                self.check_king.col * TILE, (BOARD - 1 - self.check_king.row) * TILE, TILE, TILE, arcade.color.RED, 4
             )
 
         self.pieces.draw()
 
         if self.game_over:
-            arcade.draw_lbwh_rectangle_filled(
-                0, 0,
-                SCREEN, SCREEN,
-                (0, 0, 0, 180)
-            )
+            arcade.draw_lbwh_rectangle_filled(0, 0, SCREEN, SCREEN, (0, 0, 0, 180))
             arcade.draw_text(
                 f"ШАХ И МАТ!",
-                SCREEN // 2, SCREEN // 2 + 40,
-                arcade.color.GOLD, 48,
-                anchor_x="center", anchor_y="center", align="center"
+                SCREEN // 2,
+                SCREEN // 2 + 40,
+                arcade.color.GOLD,
+                48,
+                anchor_x="center",
+                anchor_y="center",
+                align="center",
             )
             arcade.draw_text(
                 f"Победили {'БЕЛЫЕ' if self.winner == WHITE else 'ЧЁРНЫЕ'}",
-                SCREEN // 2, SCREEN // 2 - 40,
-                arcade.color.WHITE, 36,
-                anchor_x="center", anchor_y="center", align="center"
+                SCREEN // 2,
+                SCREEN // 2 - 40,
+                arcade.color.WHITE,
+                36,
+                anchor_x="center",
+                anchor_y="center",
+                align="center",
             )
             arcade.draw_text(
                 "Нажмите ESC для выхода",
-                SCREEN // 2, 50,
-                arcade.color.LIGHT_GRAY, 24,
-                anchor_x="center", anchor_y="center", align="center"
+                SCREEN // 2,
+                50,
+                arcade.color.LIGHT_GRAY,
+                24,
+                anchor_x="center",
+                anchor_y="center",
+                align="center",
             )
 
-    def on_key_press(self, symbol, modifiers):
-        if symbol == arcade.key.ESCAPE:
-            if self.game_over:
-                arcade.close_window()
-            else:
-                self.selected_piece = None
-                self.valid_moves = []
+    def on_key_press(self, key, modifiers):
+        if key == arcade.key.ESCAPE:
+            self.window.show_view(self.return_view_cls())
 
     def on_mouse_press(self, x, y, button, modifiers):
         if self.game_over:
@@ -155,8 +160,7 @@ class ChessGame(arcade.View):
 
         if self.selected_piece.kind == "P":
             self.selected_piece.first_move = False
-            if (self.selected_piece.player == WHITE and r == 0) or \
-                    (self.selected_piece.player == BLACK and r == 7):
+            if (self.selected_piece.player == WHITE and r == 0) or (self.selected_piece.player == BLACK and r == 7):
                 self.selected_piece.kind = "Q"
                 self.selected_piece.texture = arcade.load_texture(
                     f"assets/pieces/{'w' if self.selected_piece.player == WHITE else 'b'}Q.png"
@@ -283,8 +287,8 @@ class ChessGame(arcade.View):
         return False
 
     def clear_path(self, sr, sc, r, c):
-        dr = (r - sr)
-        dc = (c - sc)
+        dr = r - sr
+        dc = c - sc
         step_r = (dr > 0) - (dr < 0) if dr != 0 else 0
         step_c = (dc > 0) - (dc < 0) if dc != 0 else 0
 

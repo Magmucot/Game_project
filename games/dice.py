@@ -553,7 +553,7 @@ class DicePokerView(arcade.View):
         for btn in active_buttons:
             btn.update(delta_time)
 
-        # Если играем с ботом и сейчас его очередь
+        # Если играем с ботом
         if self.game_started and self.vs_bot and self.curr_player == 2:
             if not any(d.rolling for d in self.dice):
                 self.bot_timer += delta_time
@@ -569,10 +569,13 @@ class DicePokerView(arcade.View):
                     if self.bot.should_stop(score):
                         self.score_hand()
                     else:
-                        keep_indices = self.bot.decision(curr_vals, self.rolls_left)
-                        for i in range(5):
-                            self.dice[i].locked = i in keep_indices
-                        self.roll_all_dice()
+                        kep_inds = self.bot.decision(curr_vals, self.rolls_left)
+                        if len(kep_inds) == 5 or self.bot.should_stop(score):
+                            self.score_hand()
+                        else:
+                            for i in range(5):
+                                self.dice[i].locked = i in kep_inds
+                            self.roll_all_dice()
                     self.bot_timer = 0
                 elif self.rolls_left == 0 and self.bot_timer > 1.0:
                     self.score_hand()

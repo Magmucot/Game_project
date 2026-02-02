@@ -2,10 +2,10 @@
   "high_scores": {
     "tanks": 0,
     "fighter_wins": 0,
-    "dice_record": 75,
+    "dice_record": 105,
     "snake": 5
   },
-  "total_games": 17,
+  "total_games": 20,
   "player_stats": {
     "wins": 0,
     "losses": 0

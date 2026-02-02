@@ -1,7 +1,7 @@
 import arcade
 import math
 import random
-from games import FighterGameView, TanksGameView, DicePokerView, MinesGameView, SnakeGameView
+from games import FighterGameView, TanksGameView, DicePokerView, MinesGameView, SnakeGameView, ChessGameView
 from data_manager import GameDataManager
 
 SCREEN_WIDTH = 900
@@ -139,7 +139,7 @@ class GamesMenuView(arcade.View):
             ("Кости", lambda: DicePokerView(GamesMenuView)),
             ("Минер", lambda: MinesGameView(GamesMenuView)),
             ("Змейка", lambda: SnakeGameView(GamesMenuView)),
-            ("Шахматы", lambda: GamePlaceholderView("Шахматы")),
+            ("Шахматы", lambda: ChessGameView(GamesMenuView)),
         ]
 
         # Отрисовка сеткой 2x3
@@ -197,7 +197,7 @@ class SettingsView(arcade.View):
         lines = [
             # f"Танки (уровень): {stats['high_scores']['tanks']}",
             f"Кости (рекорд): {stats['high_scores']['dice_record']}",
-            f"Змейка(рекорд): {stats['high_scores']['snake']}"
+            f"Змейка(рекорд): {stats['high_scores']['snake']}",
             # f"Побед в файтинге: {stats['player_stats']['wins']}",
             f"Всего запусков: {stats['total_games']}",
         ]
