@@ -9,7 +9,7 @@ WHITE = 1
 BLACK = -1
 
 
-class ChessPiece(arcade.Sprite):
+class ChessGameView(arcade.Sprite):
     def __init__(self, kind, player, row, col):
         img = f"assets/pieces/{'w' if player == WHITE else 'b'}{kind}.png"
         super().__init__(img, scale=PIECE_SIZE / TILE)
