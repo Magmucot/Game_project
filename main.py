@@ -142,7 +142,7 @@ class GamesMenuView(arcade.View):
             ("Шахматы", lambda: ChessGameView(GamesMenuView)),
         ]
 
-        # Отрисовка сеткой 2x3
+        # Отрисовка сетки
         for i, (name, view_factory) in enumerate(game_list):
             column = i % 2
             row = i // 2
@@ -195,14 +195,16 @@ class SettingsView(arcade.View):
 
         stats = self.window.data_manager.data
         lines = [
-            # f"Танки (уровень): {stats['high_scores']['tanks']}",
-            f"Кости (рекорд): {stats['high_scores']['dice_record']}",
-            f"Змейка(рекорд): {stats['high_scores']['snake']}",
-            # f"Побед в файтинге: {stats['player_stats']['wins']}",
+            f"Кости (рекорд): {self.window.data_manager.get_high_score('dice')}",
+            f"Змейка(рекорд): {self.window.data_manager.get_high_score('snake')}",
+            f"Игр в шахматах: {self.window.data_manager.get_high_score('chess_cnt')}",
+            f"Игр в файтинге: {self.window.data_manager.get_high_score('fighter_cnt')}",
+            f"Первый победил в файтинге: {stats['player_stats']['first_won']}",
+            f"Второй победил в файтинге: {stats['player_stats']['second_won']}",
             f"Всего запусков: {stats['total_games']}",
         ]
         for i, text in enumerate(lines):
-            arcade.draw_text(text, SCREEN_WIDTH // 2, 400 - i * 50, arcade.color.WHITE, 20, anchor_x="center")
+            arcade.draw_text(text, SCREEN_WIDTH // 2, 460 - i * 50, arcade.color.WHITE, 20, anchor_x="center")
         for btn in self.buttons:
             btn.draw()
 

@@ -11,12 +11,14 @@ class GameDataManager:
         default = {
             "high_scores": {
                 "tanks": 0,
-                "fighter_wins": 0,
-                "dice_record": 0,
-                "snake": 0,  # Добавлена поддержка snake
+                "fighter_cnt": 0,
+                "dice": 0,
+                "snake": 0,
+                "chess": 0,
+                "chess_cnt": 0,
             },
             "total_games": 0,
-            "player_stats": {"wins": 0, "losses": 0},
+            "player_stats": {"first_won": 0, "second_won": 0},
             "achievements": [],
             "settings": {"volume": 1.0, "difficulty": "Medium"},
         }
@@ -24,7 +26,7 @@ class GameDataManager:
             try:
                 with open(self.file_path, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
-                    # Глубокое обновление для новых ключей
+
                     for key in default:
                         if key not in loaded:
                             loaded[key] = default[key]
@@ -46,22 +48,16 @@ class GameDataManager:
         self.data["total_games"] += 1
         new_record = False
 
-        if game_type == "tanks":
-            if score > self.data["high_scores"]["tanks"]:
-                self.data["high_scores"]["tanks"] = score
-                new_record = True
-        elif game_type == "fighter":
+        if game_type == "fighter":
+            self.data["high_scores"]["fighter_cnt"] += 1
             if won:
-                self.data["player_stats"]["wins"] += 1
+                self.data["player_stats"]["first_won"] += 1
             else:
-                self.data["player_stats"]["losses"] += 1
-        elif game_type == "dice":
-            if score > self.data["high_scores"]["dice_record"]:
-                self.data["high_scores"]["dice_record"] = score
-                new_record = True
-        elif game_type == "snake":
-            if score > self.data["high_scores"]["snake"]:
-                self.data["high_scores"]["snake"] = score
+                self.data["player_stats"]["second_won"] += 1
+
+        else:
+            if score > self.data["high_scores"][game_type]:
+                self.data["high_scores"][game_type] = score
                 new_record = True
 
         self.save()
@@ -69,6 +65,6 @@ class GameDataManager:
 
     def get_high_score(self, game_type):
         """Получить рекорд для конкретной игры"""
-        mapping = {"tanks": "tanks", "fighter": "fighter_wins", "dice": "dice_record", "snake": "snake"}
+        mapping = {"tanks": "tanks", "fighter_cnt": "fighter_cnt", "dice": "dice", "snake": "snake", "chess": "chess"}
         key = mapping.get(game_type, game_type)
         return self.data["high_scores"].get(key, 0)

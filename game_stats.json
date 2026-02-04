@@ -1,14 +1,16 @@
 {
   "high_scores": {
     "tanks": 0,
-    "fighter_wins": 0,
-    "dice_record": 105,
-    "snake": 5
+    "fighter_cnt": 0,
+    "dice": 111,
+    "snake": 0,
+    "chess": 0,
+    "chess_cnt": 0
   },
-  "total_games": 20,
+  "total_games": 2,
   "player_stats": {
-    "wins": 0,
-    "losses": 0
+    "first_won": 0,
+    "second_won": 0
   },
   "achievements": [],
   "settings": {
