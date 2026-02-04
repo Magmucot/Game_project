@@ -4,62 +4,105 @@ import random
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
 CELL_SIZE = 20
-COLOR_LIGHT = (170, 215, 81)
-COLOR_DARK = (162, 209, 73)
+LIGHT_COLOR = (170, 215, 81)
+DARK_COLOR = (162, 209, 73)
 
 
 class SnakeGameView(arcade.View):
     def __init__(self, return_view_cls):
         super().__init__()
         self.return_view_cls = return_view_cls
-        self.snake = [(10, 10), (9, 10), (8, 10)]
-        self.direction = (1, 0)
-        self.apple = self.spawn_apple()
-        self.game_over = False
+        self.snake_body = [(10, 10), (9, 10), (8, 10)]
+        self.snake_direction = (1, 0)
+        self.apple_position = self.generate_apple()
+        self.is_game_over = False
         self.score = 0
-        self.speed_timer = 0
-        self.stats_recorded = False
+        self.move_timer = 0
+        self.is_score_recorded = False
 
     def on_show_view(self):
         arcade.set_background_color(arcade.color.ALMOND)
 
-    def spawn_apple(self):
+    def generate_apple(self):
+        grid_width = SCREEN_WIDTH // CELL_SIZE
+        grid_height = SCREEN_HEIGHT // CELL_SIZE
+        
         while True:
-            x = random.randint(0, SCREEN_WIDTH // CELL_SIZE - 1)
-            y = random.randint(0, SCREEN_HEIGHT // CELL_SIZE - 1)
-            if (x, y) not in self.snake:
-                return (x, y)
+            apple_x = random.randint(0, grid_width - 1)
+            apple_y = random.randint(0, grid_height - 1)
+            if (apple_x, apple_y) not in self.snake_body:
+                return (apple_x, apple_y)
 
     def on_draw(self):
         self.clear()
-
-        # --- ШАХМАТНОЕ ПОЛЕ ---
-        for row in range(SCREEN_HEIGHT // CELL_SIZE):
-            for col in range(SCREEN_WIDTH // CELL_SIZE):
-                if (row + col) % 2 == 0:
-                    color = COLOR_LIGHT
+        
+        grid_width = SCREEN_WIDTH // CELL_SIZE
+        grid_height = SCREEN_HEIGHT // CELL_SIZE
+        
+        for row in range(grid_height):
+            for column in range(grid_width):
+                if (row + column) % 2 == 0:
+                    cell_color = LIGHT_COLOR
                 else:
-                    color = COLOR_DARK
+                    cell_color = DARK_COLOR
+                
+                arcade.draw_lbwh_rectangle_filled(
+                    column * CELL_SIZE, 
+                    row * CELL_SIZE, 
+                    CELL_SIZE, 
+                    CELL_SIZE, 
+                    cell_color
+                )
 
-                arcade.draw_lbwh_rectangle_filled(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE, color)
-        # -----------------------------
+        for segment_x, segment_y in self.snake_body:
+            arcade.draw_lbwh_rectangle_filled(
+                segment_x * CELL_SIZE, 
+                segment_y * CELL_SIZE, 
+                CELL_SIZE, 
+                CELL_SIZE, 
+                arcade.color.GREEN
+            )
 
-        # Отрисовка змейки
-        for x, y in self.snake:
-            arcade.draw_lbwh_rectangle_filled(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE, arcade.color.GREEN)
-
-        # Отрисовка яблока
-        ax, ay = self.apple
-        arcade.draw_lbwh_rectangle_filled(ax * CELL_SIZE, ay * CELL_SIZE, CELL_SIZE, CELL_SIZE, arcade.color.RED)
+        apple_x, apple_y = self.apple_position
+        arcade.draw_lbwh_rectangle_filled(
+            apple_x * CELL_SIZE, 
+            apple_y * CELL_SIZE, 
+            CELL_SIZE, 
+            CELL_SIZE, 
+            arcade.color.RED
+        )
 
         high_score = self.window.data_manager.get_high_score("snake")
-        arcade.draw_text(f"Счет: {self.score}", 10, SCREEN_HEIGHT - 30, arcade.color.BLACK, 18)
-        arcade.draw_text(f"Лучший: {high_score}", 10, SCREEN_HEIGHT - 55, arcade.color.GRAY, 14)
+        arcade.draw_text(
+            f"Счет: {self.score}", 
+            10, 
+            SCREEN_HEIGHT - 30, 
+            arcade.color.BLACK, 
+            18
+        )
+        arcade.draw_text(
+            f"Лучший: {high_score}", 
+            10, 
+            SCREEN_HEIGHT - 55, 
+            arcade.color.GRAY, 
+            14
+        )
 
-        if self.game_over:
-            arcade.draw_lbwh_rectangle_filled(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, (0, 0, 0, 150))
+        if self.is_game_over:
+            arcade.draw_lbwh_rectangle_filled(
+                0, 
+                0, 
+                SCREEN_WIDTH, 
+                SCREEN_HEIGHT, 
+                (0, 0, 0, 150)
+            )
             arcade.draw_text(
-                "ВЫ ПРОИГРАЛИ!", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20, arcade.color.WHITE, 32, anchor_x="center"
+                "ВЫ ПРОИГРАЛИ!", 
+                SCREEN_WIDTH / 2, 
+                SCREEN_HEIGHT / 2 + 20, 
+                arcade.color.WHITE, 
+                32, 
+                anchor_x="center"
             )
             arcade.draw_text(
                 f"Финальный результат: {self.score}",
@@ -71,45 +114,53 @@ class SnakeGameView(arcade.View):
             )
 
     def on_update(self, delta_time):
-        if self.game_over:
-            # 3. Обращаемся к менеджеру в окне при окончании игры
-            if not self.stats_recorded:
+        if self.is_game_over:
+            if not self.is_score_recorded:
                 self.window.data_manager.record_game("snake", self.score)
-                self.stats_recorded = True
+                self.is_score_recorded = True
             return
 
-        self.speed_timer += delta_time
-        if self.speed_timer < 0.1:
+        self.move_timer += delta_time
+        if self.move_timer < 0.1:
             return
-        self.speed_timer = 0
+        
+        self.move_timer = 0
 
-        head = self.snake[0]
-        new_head = (head[0] + self.direction[0], head[1] + self.direction[1])
+        head_x, head_y = self.snake_body[0]
+        new_head_x = head_x + self.snake_direction[0]
+        new_head_y = head_y + self.snake_direction[1]
+        new_head = (new_head_x, new_head_y)
 
-        if (
-            new_head in self.snake
-            or not (0 <= new_head[0] < SCREEN_WIDTH // CELL_SIZE)
-            or not (0 <= new_head[1] < SCREEN_HEIGHT // CELL_SIZE)
-        ):
-            self.game_over = True
+        grid_width = SCREEN_WIDTH // CELL_SIZE
+        grid_height = SCREEN_HEIGHT // CELL_SIZE
+
+        is_collision = (
+            new_head in self.snake_body
+            or not (0 <= new_head_x < grid_width)
+            or not (0 <= new_head_y < grid_height)
+        )
+        
+        if is_collision:
+            self.is_game_over = True
             return
 
-        self.snake = [new_head] + self.snake
+        self.snake_body = [new_head] + self.snake_body
 
-        if new_head == self.apple:
-            self.apple = self.spawn_apple()
+        if new_head == self.apple_position:
+            self.apple_position = self.generate_apple()
             self.score += 1
         else:
-            self.snake.pop()
+            self.snake_body.pop()
 
     def on_key_press(self, key, modifiers):
-        if key in (arcade.key.W, arcade.key.UP) and self.direction != (0, -1):
-            self.direction = (0, 1)
-        elif key in (arcade.key.S, arcade.key.DOWN) and self.direction != (0, 1):
-            self.direction = (0, -1)
-        elif key in (arcade.key.A, arcade.key.LEFT) and self.direction != (1, 0):
-            self.direction = (-1, 0)
-        elif key in (arcade.key.D, arcade.key.RIGHT) and self.direction != (-1, 0):
-            self.direction = (1, 0)
+        if key in (arcade.key.W, arcade.key.UP) and self.snake_direction != (0, -1):
+            self.snake_direction = (0, 1)
+        elif key in (arcade.key.S, arcade.key.DOWN) and self.snake_direction != (0, 1):
+            self.snake_direction = (0, -1)
+        elif key in (arcade.key.A, arcade.key.LEFT) and self.snake_direction != (1, 0):
+            self.snake_direction = (-1, 0)
+        elif key in (arcade.key.D, arcade.key.RIGHT) and self.snake_direction != (-1, 0):
+            self.snake_direction = (1, 0)
+        
         if key == arcade.key.ESCAPE:
             self.window.show_view(self.return_view_cls())
