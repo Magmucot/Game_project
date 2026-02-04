@@ -26,7 +26,7 @@ class ChessPiece(arcade.Sprite):
 
 
 class ChessGameView(arcade.View):
-    def __init__(self, return_view_cls):
+    def __init__(self, return_view_cls=None):
         super().__init__()
         self.return_view_cls = return_view_cls
 
@@ -105,20 +105,11 @@ class ChessGameView(arcade.View):
                 anchor_y="center",
                 align="center",
             )
-            arcade.draw_text(
-                "Нажмите ESC для выхода",
-                SCREEN // 2,
-                50,
-                arcade.color.LIGHT_GRAY,
-                24,
-                anchor_x="center",
-                anchor_y="center",
-                align="center",
-            )
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.ESCAPE:
-            self.window.show_view(self.return_view_cls())
+            if self.return_view_cls:
+                self.window.show_view(self.return_view_cls())
 
     def on_mouse_press(self, x, y, button, modifiers):
         if self.game_over:
@@ -158,6 +149,20 @@ class ChessGameView(arcade.View):
         self.selected_piece.col = c
         self.selected_piece.update_position()
 
+        if self.selected_piece.kind == "K" and abs(c - old_col) == 2:
+            if c > old_col:
+                rook_col = 7
+                new_rook_col = c - 1
+            else:
+                rook_col = 0
+                new_rook_col = c + 1
+
+            rook = self.get_piece_at(r, rook_col)
+            if rook:
+                rook.col = new_rook_col
+                rook.update_position()
+                rook.first_move = False
+
         if self.selected_piece.kind == "P":
             self.selected_piece.first_move = False
             if (self.selected_piece.player == WHITE and r == 0) or (self.selected_piece.player == BLACK and r == 7):
@@ -167,12 +172,28 @@ class ChessGameView(arcade.View):
                 )
                 self.selected_piece.scale = PIECE_SIZE / TILE
 
+        if self.selected_piece.kind in ["K", "R"]:
+            self.selected_piece.first_move = False
+
         if self.is_in_check(self.selected_piece.player):
             self.selected_piece.row = old_row
             self.selected_piece.col = old_col
             self.selected_piece.update_position()
             if target:
                 self.pieces.append(target)
+            if self.selected_piece.kind == "K" and abs(c - old_col) == 2:
+                if c > old_col:
+                    rook_col = 7
+                    old_rook_col = c - 1
+                else:
+                    rook_col = 0
+                    old_rook_col = c + 1
+
+                rook = self.get_piece_at(r, old_rook_col)
+                if rook:
+                    rook.col = rook_col
+                    rook.update_position()
+                    rook.first_move = True
             return
 
         self.turn *= -1
@@ -223,12 +244,44 @@ class ChessGameView(arcade.View):
                         self.pieces.remove(target)
                         removed_piece = target
 
+                    if piece.kind == "K" and abs(c - old_col) == 2:
+                        if c > old_col:
+                            rook_col = 7
+                            new_rook_col = c - 1
+                        else:
+                            rook_col = 0
+                            new_rook_col = c + 1
+
+                        rook = self.get_piece_at(old_row, rook_col)
+                        if rook:
+                            rook.col = new_rook_col
+                            temp_removed = None
+                            if self.get_piece_at(old_row, new_rook_col) and self.get_piece_at(old_row,
+                                                                                              new_rook_col) != rook:
+                                temp_removed = self.get_piece_at(old_row, new_rook_col)
+                                self.pieces.remove(temp_removed)
+
                     if not self.is_in_check(piece.player):
                         moves.append((r, c))
 
                     piece.row, piece.col = old_row, old_col
                     if removed_piece:
                         self.pieces.append(removed_piece)
+
+                    if piece.kind == "K" and abs(c - old_col) == 2:
+                        if c > old_col:
+                            rook_col = 7
+                            new_rook_col = c - 1
+                        else:
+                            rook_col = 0
+                            new_rook_col = c + 1
+
+                        rook = self.get_piece_at(old_row, new_rook_col)
+                        if rook and rook.kind == "R":
+                            rook.col = rook_col
+                            rook.update_position()
+                        if temp_removed:
+                            self.pieces.append(temp_removed)
 
         return moves
 
@@ -280,10 +333,43 @@ class ChessGameView(arcade.View):
         if piece.kind == "K":
             if max(abs(dr), abs(dc)) == 1:
                 return True
+
             if piece.first_move and dr == 0 and abs(dc) == 2:
-                return self.can_castle(piece, dc > 0)
+                if self.can_castle(piece, dc > 0):
+                    if dc > 0:
+                        if self.get_piece_at(piece.row, 5) or self.get_piece_at(piece.row, 6):
+                            return False
+                    else:
+                        if self.get_piece_at(piece.row, 1) or self.get_piece_at(piece.row, 2) or self.get_piece_at(
+                                piece.row, 3):
+                            return False
+
+                    if self.is_in_check(piece.player):
+                        return False
+
+                    if dc > 0:
+                        for col in range(piece.col + 1, 7):
+                            temp_row = piece.row
+                            temp_col = col
+                            if self.is_square_under_attack(temp_row, temp_col, piece.player):
+                                return False
+                    else:
+                        for col in range(piece.col - 1, 0, -1):
+                            temp_row = piece.row
+                            temp_col = col
+                            if self.is_square_under_attack(temp_row, temp_col, piece.player):
+                                return False
+
+                    return True
             return False
 
+        return False
+
+    def is_square_under_attack(self, row, col, color):
+        for piece in self.pieces:
+            if piece.player != color:
+                if self.is_legal_move(piece, row, col, check_check=False):
+                    return True
         return False
 
     def clear_path(self, sr, sc, r, c):
