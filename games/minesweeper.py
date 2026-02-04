@@ -127,7 +127,7 @@ class MinesGameView(arcade.View):
                             anchor_y="center",
                         )
 
-        arcade.draw_text(f"Mines: {self.total_mines}", BOARD_LEFT + BOARD_WIDTH + 20, BOARD_BOTTOM + BOARD_HEIGHT - 20,
+        arcade.draw_text(f"Мин осталось: {self.total_mines}", BOARD_LEFT + BOARD_WIDTH + 20, BOARD_BOTTOM + BOARD_HEIGHT - 20,
                          arcade.color.WHITE, 16)
 
         if self.game_start_time:
