@@ -2,14 +2,13 @@ import arcade
 import random
 import time
 
-
-ROWS = 12
-COLS = 16
-CELL = 32
-LEFT = 40
-BOTTOM = 60
-WIDTH = COLS * CELL
-HEIGHT = ROWS * CELL
+ROW_COUNT = 12
+COLUMN_COUNT = 16
+CELL_SIZE = 32
+BOARD_LEFT = 40
+BOARD_BOTTOM = 60
+BOARD_WIDTH = COLUMN_COUNT * CELL_SIZE
+BOARD_HEIGHT = ROW_COUNT * CELL_SIZE
 
 
 class MinesGameView(arcade.View):
@@ -17,164 +16,200 @@ class MinesGameView(arcade.View):
         super().__init__()
         self.return_view_cls = return_view_cls
         arcade.set_background_color(arcade.color.ASH_GREY)
-        self.setup()
+        self.initialize_game()
 
-    def setup(self):
-        self.rows = ROWS
-        self.cols = COLS
-        self.mines_total = max(10, (self.rows * self.cols) // 8)
-        self.mines = set()
-        self.revealed = set()
-        self.flags = set()
-        self.first_click = True
-        self.game_over = False
-        self.win = False
-        self.start_time = None
-        self.elapsed = 0.0
+    def initialize_game(self):
+        self.row_count = ROW_COUNT
+        self.column_count = COLUMN_COUNT
+        self.total_mines = max(10, (self.row_count * self.column_count) // 8)
+        self.mine_positions = set()
+        self.revealed_cells = set()
+        self.flagged_cells = set()
+        self.is_first_click = True
+        self.is_game_over = False
+        self.is_win = False
+        self.game_start_time = None
+        self.elapsed_time = 0.0
 
-    def place_mines_avoiding(self, avoid):
-        poss = [(r, c) for r in range(self.rows) for c in range(self.cols)]
-        forbidden = {avoid}
-        ar, ac = avoid
-        for dr in (-1, 0, 1):
-            for dc in (-1, 0, 1):
-                rr, cc = ar + dr, ac + dc
-                if 0 <= rr < self.rows and 0 <= cc < self.cols:
-                    forbidden.add((rr, cc))
-        choices = [p for p in poss if p not in forbidden]
-        self.mines = set(random.sample(choices, self.mines_total))
+    def place_mines_safely(self, safe_cell):
+        possible_cells = [(row, col) for row in range(self.row_count) for col in range(self.column_count)]
+        forbidden_cells = {safe_cell}
+        safe_row, safe_col = safe_cell
 
-    def neighbors(self, r, c):
-        for dr in (-1, 0, 1):
-            for dc in (-1, 0, 1):
-                if dr == 0 and dc == 0:
+        for row_offset in (-1, 0, 1):
+            for col_offset in (-1, 0, 1):
+                neighbor_row = safe_row + row_offset
+                neighbor_col = safe_col + col_offset
+                if 0 <= neighbor_row < self.row_count and 0 <= neighbor_col < self.column_count:
+                    forbidden_cells.add((neighbor_row, neighbor_col))
+
+        available_cells = [cell for cell in possible_cells if cell not in forbidden_cells]
+        self.mine_positions = set(random.sample(available_cells, self.total_mines))
+
+    def get_cell_neighbors(self, row, col):
+        for row_offset in (-1, 0, 1):
+            for col_offset in (-1, 0, 1):
+                if row_offset == 0 and col_offset == 0:
                     continue
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.rows and 0 <= nc < self.cols:
-                    yield (nr, nc)
+                neighbor_row = row + row_offset
+                neighbor_col = col + col_offset
+                if 0 <= neighbor_row < self.row_count and 0 <= neighbor_col < self.column_count:
+                    yield (neighbor_row, neighbor_col)
 
-    def count_mines(self, r, c):
-        return sum(1 for n in self.neighbors(r, c) if n in self.mines)
+    def count_adjacent_mines(self, row, col):
+        mine_count = 0
+        for neighbor in self.get_cell_neighbors(row, col):
+            if neighbor in self.mine_positions:
+                mine_count += 1
+        return mine_count
 
-    def flood_reveal(self, r, c):
-        stack = [(r, c)]
-        while stack:
-            rr, cc = stack.pop()
-            if (rr, cc) in self.revealed:
+    def reveal_empty_area(self, start_row, start_col):
+        cells_to_check = [(start_row, start_col)]
+        while cells_to_check:
+            current_row, current_col = cells_to_check.pop()
+            if (current_row, current_col) in self.revealed_cells:
                 continue
-            self.revealed.add((rr, cc))
-            if self.count_mines(rr, cc) == 0:
-                for n in self.neighbors(rr, cc):
-                    if n not in self.revealed and n not in self.mines:
-                        stack.append(n)
 
-    def check_win(self):
-        total = self.rows * self.cols
-        if len(self.revealed) + len(self.mines) == total:
-            self.win = True
-            self.game_over = True
+            self.revealed_cells.add((current_row, current_col))
+
+            if self.count_adjacent_mines(current_row, current_col) == 0:
+                for neighbor in self.get_cell_neighbors(current_row, current_col):
+                    if neighbor not in self.revealed_cells and neighbor not in self.mine_positions:
+                        cells_to_check.append(neighbor)
+
+    def check_for_win(self):
+        total_cells = self.row_count * self.column_count
+        if len(self.revealed_cells) + len(self.mine_positions) == total_cells:
+            self.is_win = True
+            self.is_game_over = True
 
     def on_draw(self):
         self.clear()
-        arcade.draw_lbwh_rectangle_filled(LEFT - 2, BOTTOM - 2, WIDTH + 4, HEIGHT + 4, arcade.color.DARK_BROWN)
-        for r in range(self.rows):
-            for c in range(self.cols):
-                left = LEFT + c * CELL
-                bottom = BOTTOM + r * CELL
-                revealed = (r, c) in self.revealed
-                color = arcade.color.LIGHT_GRAY if revealed else arcade.color.GRAY
-                arcade.draw_lbwh_rectangle_filled(left, bottom, CELL, CELL, color)
-                arcade.draw_lbwh_rectangle_outline(left, bottom, CELL, CELL, arcade.color.BLACK, 1)
-                if revealed:
-                    if (r, c) in self.mines:
-                        arcade.draw_circle_filled(left + CELL / 2, bottom + CELL / 2, CELL / 4, arcade.color.BLACK)
+
+        arcade.draw_lbwh_rectangle_filled(BOARD_LEFT - 2, BOARD_BOTTOM - 2, BOARD_WIDTH + 4, BOARD_HEIGHT + 4,
+                                          arcade.color.DARK_BROWN)
+
+        for row in range(self.row_count):
+            for col in range(self.column_count):
+                cell_left = BOARD_LEFT + col * CELL_SIZE
+                cell_bottom = BOARD_BOTTOM + row * CELL_SIZE
+                is_revealed = (row, col) in self.revealed_cells
+
+                cell_color = arcade.color.LIGHT_GRAY if is_revealed else arcade.color.GRAY
+                arcade.draw_lbwh_rectangle_filled(cell_left, cell_bottom, CELL_SIZE, CELL_SIZE, cell_color)
+                arcade.draw_lbwh_rectangle_outline(cell_left, cell_bottom, CELL_SIZE, CELL_SIZE, arcade.color.BLACK, 1)
+
+                if is_revealed:
+                    if (row, col) in self.mine_positions:
+                        arcade.draw_circle_filled(cell_left + CELL_SIZE / 2, cell_bottom + CELL_SIZE / 2, CELL_SIZE / 4,
+                                                  arcade.color.BLACK)
                     else:
-                        cnt = self.count_mines(r, c)
-                        if cnt > 0:
+                        adjacent_mines = self.count_adjacent_mines(row, col)
+                        if adjacent_mines > 0:
                             arcade.draw_text(
-                                str(cnt),
-                                left + CELL / 2,
-                                bottom + CELL / 2,
+                                str(adjacent_mines),
+                                cell_left + CELL_SIZE / 2,
+                                cell_bottom + CELL_SIZE / 2,
                                 arcade.color.BLUE,
                                 16,
                                 anchor_x="center",
                                 anchor_y="center",
                             )
                 else:
-                    if (r, c) in self.flags:
+                    if (row, col) in self.flagged_cells:
                         arcade.draw_text(
                             "F",
-                            left + CELL / 2,
-                            bottom + CELL / 2,
+                            cell_left + CELL_SIZE / 2,
+                            cell_bottom + CELL_SIZE / 2,
                             arcade.color.RED,
                             18,
                             anchor_x="center",
                             anchor_y="center",
                         )
-        arcade.draw_text(f"Mines: {self.mines_total}", LEFT + WIDTH + 20, BOTTOM + HEIGHT - 20, arcade.color.WHITE, 16)
-        if self.start_time:
+
+        arcade.draw_text(f"Mines: {self.total_mines}", BOARD_LEFT + BOARD_WIDTH + 20, BOARD_BOTTOM + BOARD_HEIGHT - 20,
+                         arcade.color.WHITE, 16)
+
+        if self.game_start_time:
             arcade.draw_text(
-                f"Time: {int(self.elapsed)}s", LEFT + WIDTH + 20, BOTTOM + HEIGHT - 50, arcade.color.LIGHT_GRAY, 14
+                f"Time: {int(self.elapsed_time)}s",
+                BOARD_LEFT + BOARD_WIDTH + 20,
+                BOARD_BOTTOM + BOARD_HEIGHT - 50,
+                arcade.color.LIGHT_GRAY,
+                14
             )
+
         arcade.draw_text(
             "Левый клик - открыть / Правый клик - флаг. R - перезапуск, ESC - выход",
-            LEFT,
+            BOARD_LEFT,
             12,
             arcade.color.LIGHT_GRAY,
             12,
         )
-        if self.game_over:
-            txt = "ВЫ ВЫИГРАЛИ!" if self.win else "BOOM! ТЫ ПРОИГРАЛ"
-            arcade.draw_lbwh_rectangle_filled(LEFT + WIDTH / 2 - 200, BOTTOM + HEIGHT / 2 - 40, 400, 80, (0, 0, 0, 200))
-            arcade.draw_text(txt, LEFT + WIDTH / 2, BOTTOM + HEIGHT / 2 + 8, arcade.color.GOLD, 28, anchor_x="center")
+
+        if self.is_game_over:
+            result_text = "ВЫ ВЫИГРАЛИ!" if self.is_win else "BOOM! ТЫ ПРОИГРАЛ"
+            arcade.draw_lbwh_rectangle_filled(BOARD_LEFT + BOARD_WIDTH / 2 - 200, BOARD_BOTTOM + BOARD_HEIGHT / 2 - 40,
+                                              400, 80, (0, 0, 0, 200))
+            arcade.draw_text(result_text, BOARD_LEFT + BOARD_WIDTH / 2, BOARD_BOTTOM + BOARD_HEIGHT / 2 + 8,
+                             arcade.color.GOLD, 28, anchor_x="center")
             arcade.draw_text(
                 "R - перезапуск, ESC - выход",
-                LEFT + WIDTH / 2,
-                BOTTOM + HEIGHT / 2 - 18,
+                BOARD_LEFT + BOARD_WIDTH / 2,
+                BOARD_BOTTOM + BOARD_HEIGHT / 2 - 18,
                 arcade.color.LIGHT_GRAY,
                 12,
                 anchor_x="center",
             )
 
-    def on_update(self, dt):
-        if self.start_time and not self.game_over:
-            self.elapsed += dt
+    def on_update(self, delta_time):
+        if self.game_start_time and not self.is_game_over:
+            self.elapsed_time += delta_time
 
-    def on_mouse_press(self, x, y, button, modifiers):
-        if self.game_over:
+    def on_mouse_press(self, mouse_x, mouse_y, mouse_button, modifiers):
+        if self.is_game_over:
             return
-        if not (LEFT <= x <= LEFT + WIDTH and BOTTOM <= y <= BOTTOM + HEIGHT):
+
+        if not (
+                BOARD_LEFT <= mouse_x <= BOARD_LEFT + BOARD_WIDTH and BOARD_BOTTOM <= mouse_y <= BOARD_BOTTOM + BOARD_HEIGHT):
             return
-        c = int((x - LEFT) // CELL)
-        r = int((y - BOTTOM) // CELL)
-        if button == arcade.MOUSE_BUTTON_RIGHT:
-            if (r, c) not in self.revealed:
-                if (r, c) in self.flags:
-                    self.flags.remove((r, c))
+
+        column_index = int((mouse_x - BOARD_LEFT) // CELL_SIZE)
+        row_index = int((mouse_y - BOARD_BOTTOM) // CELL_SIZE)
+
+        if mouse_button == arcade.MOUSE_BUTTON_RIGHT:
+            if (row_index, column_index) not in self.revealed_cells:
+                if (row_index, column_index) in self.flagged_cells:
+                    self.flagged_cells.remove((row_index, column_index))
                 else:
-                    self.flags.add((r, c))
+                    self.flagged_cells.add((row_index, column_index))
             return
-        if self.first_click:
-            self.place_mines_avoiding((r, c))
-            self.first_click = False
-            self.start_time = time.time()
-            self.elapsed = 0.0
-        if (r, c) in self.flags:
+
+        if self.is_first_click:
+            self.place_mines_safely((row_index, column_index))
+            self.is_first_click = False
+            self.game_start_time = time.time()
+            self.elapsed_time = 0.0
+
+        if (row_index, column_index) in self.flagged_cells:
             return
-        if (r, c) in self.mines:
-            self.game_over = True
-            self.win = False
-            self.revealed.update(self.mines)
+
+        if (row_index, column_index) in self.mine_positions:
+            self.is_game_over = True
+            self.is_win = False
+            self.revealed_cells.update(self.mine_positions)
             return
-        if (r, c) not in self.revealed:
-            if self.count_mines(r, c) == 0:
-                self.flood_reveal(r, c)
+
+        if (row_index, column_index) not in self.revealed_cells:
+            if self.count_adjacent_mines(row_index, column_index) == 0:
+                self.reveal_empty_area(row_index, column_index)
             else:
-                self.revealed.add((r, c))
-        self.check_win()
+                self.revealed_cells.add((row_index, column_index))
+
+        self.check_for_win()
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.R:
-            self.setup()
+            self.initialize_game()
         if key == arcade.key.ESCAPE:
             self.window.show_view(self.return_view_cls())
