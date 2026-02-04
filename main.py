@@ -180,7 +180,7 @@ class SettingsView(arcade.View):
     def __init__(self):
         super().__init__()
         self.background = StableBackground()
-        self.buttons = [Button(SCREEN_WIDTH // 2, 100, 200, 55, "НАЗАД", lambda: self.window.show_view(MainMenuView()))]
+        self.buttons = [Button(SCREEN_WIDTH // 2, 30, 200, 55, "НАЗАД", lambda: self.window.show_view(MainMenuView()))]
 
     def on_update(self, delta_time):
         self.background.update(delta_time)
@@ -195,16 +195,18 @@ class SettingsView(arcade.View):
 
         stats = self.window.data_manager.data
         lines = [
-            f"Кости (рекорд): {self.window.data_manager.get_high_score('dice')}",
-            f"Змейка(рекорд): {self.window.data_manager.get_high_score('snake')}",
-            f"Игр в шахматах: {self.window.data_manager.get_high_score('chess_cnt')}",
-            f"Игр в файтинге: {self.window.data_manager.get_high_score('fighter_cnt')}",
-            f"Первый победил в файтинге: {stats['player_stats']['first_won']}",
-            f"Второй победил в файтинге: {stats['player_stats']['second_won']}",
-            f"Всего запусков: {stats['total_games']}",
+            f"Кости (рекорд): {self.window.data_manager.get_stats('dice')}",
+            f"Змейка(рекорд): {self.window.data_manager.get_stats('snake')}",
+            f"Игр в шахматах: {self.window.data_manager.get_stats('chess_cnt')}",
+            f"Белые победили в шахматах: {self.window.data_manager.get_stats('white_won')} раз",
+            f"Черные победил в шахматах: {self.window.data_manager.get_stats('black_won')} раз",
+            f"Игр в файтинге: {self.window.data_manager.get_stats('fighter_cnt')}",
+            f"Первый победил в файтинге: {self.window.data_manager.get_stats('first_won')} раз",
+            f"Второй победил в файтинге: {self.window.data_manager.get_stats('second_won')} раз",
+            f"В сего запусков: {stats['total_games']}",
         ]
         for i, text in enumerate(lines):
-            arcade.draw_text(text, SCREEN_WIDTH // 2, 460 - i * 50, arcade.color.WHITE, 20, anchor_x="center")
+            arcade.draw_text(text, SCREEN_WIDTH // 2, 470 - i * 50, arcade.color.WHITE, 20, anchor_x="center")
         for btn in self.buttons:
             btn.draw()
 

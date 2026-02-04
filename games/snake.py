@@ -26,7 +26,7 @@ class SnakeGameView(arcade.View):
     def generate_apple(self):
         grid_width = SCREEN_WIDTH // CELL_SIZE
         grid_height = SCREEN_HEIGHT // CELL_SIZE
-        
+
         while True:
             apple_x = random.randint(0, grid_width - 1)
             apple_y = random.randint(0, grid_height - 1)
@@ -35,74 +35,37 @@ class SnakeGameView(arcade.View):
 
     def on_draw(self):
         self.clear()
-        
+
         grid_width = SCREEN_WIDTH // CELL_SIZE
         grid_height = SCREEN_HEIGHT // CELL_SIZE
-        
+
         for row in range(grid_height):
             for column in range(grid_width):
                 if (row + column) % 2 == 0:
                     cell_color = LIGHT_COLOR
                 else:
                     cell_color = DARK_COLOR
-                
-                arcade.draw_lbwh_rectangle_filled(
-                    column * CELL_SIZE, 
-                    row * CELL_SIZE, 
-                    CELL_SIZE, 
-                    CELL_SIZE, 
-                    cell_color
-                )
+
+                arcade.draw_lbwh_rectangle_filled(column * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE, cell_color)
 
         for segment_x, segment_y in self.snake_body:
             arcade.draw_lbwh_rectangle_filled(
-                segment_x * CELL_SIZE, 
-                segment_y * CELL_SIZE, 
-                CELL_SIZE, 
-                CELL_SIZE, 
-                arcade.color.GREEN
+                segment_x * CELL_SIZE, segment_y * CELL_SIZE, CELL_SIZE, CELL_SIZE, arcade.color.GREEN
             )
 
         apple_x, apple_y = self.apple_position
         arcade.draw_lbwh_rectangle_filled(
-            apple_x * CELL_SIZE, 
-            apple_y * CELL_SIZE, 
-            CELL_SIZE, 
-            CELL_SIZE, 
-            arcade.color.RED
+            apple_x * CELL_SIZE, apple_y * CELL_SIZE, CELL_SIZE, CELL_SIZE, arcade.color.RED
         )
 
-        high_score = self.window.data_manager.get_high_score("snake")
-        arcade.draw_text(
-            f"Счет: {self.score}", 
-            10, 
-            SCREEN_HEIGHT - 30, 
-            arcade.color.BLACK, 
-            18
-        )
-        arcade.draw_text(
-            f"Лучший: {high_score}", 
-            10, 
-            SCREEN_HEIGHT - 55, 
-            arcade.color.GRAY, 
-            14
-        )
+        high_score = self.window.data_manager.get_stats("snake")
+        arcade.draw_text(f"Счет: {self.score}", 10, SCREEN_HEIGHT - 30, arcade.color.BLACK, 18)
+        arcade.draw_text(f"Лучший: {high_score}", 10, SCREEN_HEIGHT - 55, arcade.color.GRAY, 14)
 
         if self.is_game_over:
-            arcade.draw_lbwh_rectangle_filled(
-                0, 
-                0, 
-                SCREEN_WIDTH, 
-                SCREEN_HEIGHT, 
-                (0, 0, 0, 150)
-            )
+            arcade.draw_lbwh_rectangle_filled(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (0, 0, 0, 150))
             arcade.draw_text(
-                "ВЫ ПРОИГРАЛИ!", 
-                SCREEN_WIDTH / 2, 
-                SCREEN_HEIGHT / 2 + 20, 
-                arcade.color.WHITE, 
-                32, 
-                anchor_x="center"
+                "ВЫ ПРОИГРАЛИ!", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20, arcade.color.WHITE, 32, anchor_x="center"
             )
             arcade.draw_text(
                 f"Финальный результат: {self.score}",
@@ -123,7 +86,7 @@ class SnakeGameView(arcade.View):
         self.move_timer += delta_time
         if self.move_timer < 0.1:
             return
-        
+
         self.move_timer = 0
 
         head_x, head_y = self.snake_body[0]
@@ -135,11 +98,9 @@ class SnakeGameView(arcade.View):
         grid_height = SCREEN_HEIGHT // CELL_SIZE
 
         is_collision = (
-            new_head in self.snake_body
-            or not (0 <= new_head_x < grid_width)
-            or not (0 <= new_head_y < grid_height)
+            new_head in self.snake_body or not (0 <= new_head_x < grid_width) or not (0 <= new_head_y < grid_height)
         )
-        
+
         if is_collision:
             self.is_game_over = True
             return
@@ -161,6 +122,6 @@ class SnakeGameView(arcade.View):
             self.snake_direction = (-1, 0)
         elif key in (arcade.key.D, arcade.key.RIGHT) and self.snake_direction != (-1, 0):
             self.snake_direction = (1, 0)
-        
+
         if key == arcade.key.ESCAPE:
             self.window.show_view(self.return_view_cls())

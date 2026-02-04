@@ -18,7 +18,8 @@ class GameDataManager:
                 "chess_cnt": 0,
             },
             "total_games": 0,
-            "player_stats": {"first_won": 0, "second_won": 0},
+            "fighter_games": {"first_won": 0, "second_won": 0},
+            "chess_games": {"white_won": 0, "black_won": 0},
             "achievements": [],
             "settings": {"volume": 1.0, "difficulty": "Medium"},
         }
@@ -37,34 +38,48 @@ class GameDataManager:
                     return loaded
             except Exception:
                 return default
+        else:
+            self.data = default
+            self.save()
         return default
 
     def save(self):
         with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
 
-    def record_game(self, game_type, score, won=False):
+    def record_game(self, key, score, won=False):
         """Записать результат игры. Возвращает True если новый рекорд."""
         self.data["total_games"] += 1
         new_record = False
 
-        if game_type == "fighter":
+        if key == "fighter":
             self.data["high_scores"]["fighter_cnt"] += 1
             if won:
-                self.data["player_stats"]["first_won"] += 1
+                self.data["fighter_games"]["first_won"] += 1
             else:
-                self.data["player_stats"]["second_won"] += 1
-
+                self.data["fighter_games"]["second_won"] += 1
+        elif key == "chess":
+            self.data["high_scores"]["chess_cnt"] += 1
+            if won:
+                self.data["chess_games"]["white_won"] += 1
+            else:
+                self.data["chess_games"]["black_won"] += 1
         else:
-            if score > self.data["high_scores"][game_type]:
-                self.data["high_scores"][game_type] = score
+            if score > self.data["high_scores"][key] and key not in ("tanks"):
+                self.data["high_scores"][key] = score
                 new_record = True
 
         self.save()
         return new_record
 
-    def get_high_score(self, game_type):
-        """Получить рекорд для конкретной игры"""
-        mapping = {"tanks": "tanks", "fighter_cnt": "fighter_cnt", "dice": "dice", "snake": "snake", "chess": "chess"}
-        key = mapping.get(game_type, game_type)
-        return self.data["high_scores"].get(key, 0)
+    def get_stats(self, key):
+        """Получение данных"""
+        try:
+            if key in ["first_won", "second_won"]:
+                return self.data["fighter_games"].get(key, 0)
+            elif key in ["white_won", "black_won"]:
+                return self.data["chess_games"].get(key, 0)
+
+            return self.data["high_scores"].get(key, 0)
+        except Exception:
+            return 0

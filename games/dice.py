@@ -1,7 +1,7 @@
 import arcade
 import random
 import math
-from data_manager import GameDataManager
+
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
@@ -355,7 +355,6 @@ class DicePokerView(arcade.View):
         self.max_rounds = 5
         self.game_over = False
         self.round_scored = False
-        self.data_manager = GameDataManager()
 
         self.sounds = {}
         self.load_sounds()
@@ -449,8 +448,6 @@ class DicePokerView(arcade.View):
 
         if self.rolls_left < 3 and not self.round_scored:
             score = self.calculate_score()
-            final_score = max(self.scores[1], self.scores[2])
-            is_new_record = self.window.data_manager.record_game("dice", final_score, won=True)
             self.scores[self.curr_player] += score
             self.round_scored = True
 

@@ -462,9 +462,11 @@ class FighterGameView(arcade.View):
         # Победа
         if self.player1.hp <= 0:
             self.game_over = True
+            self.window.data_manager.record_game("fighter", 0, won=False)
             self.winner = "ИГРОК 2"
         elif self.player2.hp <= 0:
             self.game_over = True
+            self.window.data_manager.record_game("fighter", 0, won=True)
             self.winner = "ИГРОК 1"
 
     def on_key_press(self, key, modifiers):
