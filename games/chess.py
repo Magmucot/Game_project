@@ -17,10 +17,10 @@ class ChessPiece(arcade.Sprite):
         self.player = player
         self.row = row
         self.col = col
-        self.update_position()
+        self.update_pos()
         self.first_move = True
 
-    def update_position(self):
+    def update_pos(self):
         self.center_x = self.col * TILE + TILE // 2
         self.center_y = (BOARD - 1 - self.row) * TILE + TILE // 2
 
@@ -31,13 +31,21 @@ class ChessGameView(arcade.View):
         self.return_view_cls = return_view_cls
 
         self.turn = WHITE
-        self.selected_piece = None
+        self.selected = None
         self.pieces = arcade.SpriteList()
         self.move_sound = arcade.load_sound("assets/audio_on_move.wav")
         self.game_over = False
         self.winner = None
-        self.valid_moves = []
+        self.moves = []
         self.check_king = None
+        self.checkers = []
+
+        self.en_passant = None
+        self.promoting = None
+        self.promo_options = ["Q", "R", "B", "N"]
+        self.promo_rects = []
+        self.promo_sprites = arcade.SpriteList()
+
         self.setup_board()
 
     def setup_board(self):
@@ -61,15 +69,47 @@ class ChessGameView(arcade.View):
                 color = arcade.color.BEIGE if (r + c) % 2 == 0 else arcade.color.BROWN
                 arcade.draw_lbwh_rectangle_filled(c * TILE, (BOARD - 1 - r) * TILE, TILE, TILE, color)
 
-        for r, c in self.valid_moves:
-            target = self.get_piece_at(r, c)
-            color = arcade.color.LIGHT_GREEN if not target else arcade.color.RED
-            arcade.draw_lbwh_rectangle_filled(c * TILE, (BOARD - 1 - r) * TILE, TILE, TILE, color)
+        for r, c in self.moves:
+            target = self.piece_at(r, c)
+            x = c * TILE
+            y = (BOARD - 1 - r) * TILE
 
-        if self.selected_piece:
+            if self.selected and self.selected.kind == "P":
+                dr = r - self.selected.row
+                dc = c - self.selected.col
+                dir = -1 if self.selected.player == WHITE else 1
+
+                if dc == 0 and (dr == dir or (dr == 2 * dir and self.selected.first_move)) and not target:
+                    arcade.draw_lbwh_rectangle_filled(x, y, TILE, TILE, (100, 255, 100, 100))
+                elif abs(dc) == 1 and dr == dir:
+                    if target or (self.en_passant and (r, c) == self.en_passant):
+                        arcade.draw_lbwh_rectangle_outline(x, y, TILE, TILE, (255, 50, 50, 200), 2)
+            else:
+                if not target:
+                    arcade.draw_lbwh_rectangle_filled(x, y, TILE, TILE, (100, 255, 100, 100))
+                else:
+                    arcade.draw_lbwh_rectangle_outline(x, y, TILE, TILE, (255, 50, 50, 200), 2)
+
+        if self.en_passant and (self.en_passant in self.moves):
+            r, c = self.en_passant
+            x = c * TILE
+            y = (BOARD - 1 - r) * TILE
+
+            dash = 6
+            gap = 4
+            pos = 0
+
+            while pos < TILE:
+                arcade.draw_line(x + pos, y, x + min(pos + dash, TILE), y, (255, 165, 0, 220), 3)
+                arcade.draw_line(x + pos, y + TILE, x + min(pos + dash, TILE), y + TILE, (255, 165, 0, 220), 3)
+                arcade.draw_line(x, y + pos, x, y + min(pos + dash, TILE), (255, 165, 0, 220), 3)
+                arcade.draw_line(x + TILE, y + pos, x + TILE, y + min(pos + dash, TILE), (255, 165, 0, 220), 3)
+                pos += dash + gap
+
+        if self.selected:
             arcade.draw_lbwh_rectangle_outline(
-                self.selected_piece.col * TILE,
-                (BOARD - 1 - self.selected_piece.row) * TILE,
+                self.selected.col * TILE,
+                (BOARD - 1 - self.selected.row) * TILE,
                 TILE,
                 TILE,
                 arcade.color.YELLOW,
@@ -78,10 +118,35 @@ class ChessGameView(arcade.View):
 
         if self.check_king:
             arcade.draw_lbwh_rectangle_outline(
-                self.check_king.col * TILE, (BOARD - 1 - self.check_king.row) * TILE, TILE, TILE, arcade.color.RED, 4
+                self.check_king.col * TILE,
+                (BOARD - 1 - self.check_king.row) * TILE,
+                TILE,
+                TILE,
+                arcade.color.RED,
+                4
             )
 
+            for piece in self.checkers:
+                arcade.draw_lbwh_rectangle_filled(
+                    piece.col * TILE,
+                    (BOARD - 1 - piece.row) * TILE,
+                    TILE,
+                    TILE,
+                    (255, 100, 100, 100)
+                )
+                arcade.draw_lbwh_rectangle_outline(
+                    piece.col * TILE,
+                    (BOARD - 1 - piece.row) * TILE,
+                    TILE,
+                    TILE,
+                    (255, 50, 50, 220),
+                    2
+                )
+
         self.pieces.draw()
+
+        if self.promoting:
+            self.draw_promo_menu()
 
         if self.game_over:
             arcade.draw_lbwh_rectangle_filled(0, 0, SCREEN, SCREEN, (0, 0, 0, 180))
@@ -106,6 +171,36 @@ class ChessGameView(arcade.View):
                 align="center",
             )
 
+    def draw_promo_menu(self):
+        menu_width = TILE * len(self.promo_options)
+        menu_height = TILE
+        menu_x = (SCREEN - menu_width) // 2
+        menu_y = (SCREEN - menu_height) // 2
+
+        arcade.draw_lbwh_rectangle_filled(menu_x, menu_y, menu_width, menu_height, arcade.color.DARK_SLATE_GRAY)
+        arcade.draw_lbwh_rectangle_outline(menu_x, menu_y, menu_width, menu_height, arcade.color.GOLD, 3)
+
+        self.promo_rects = []
+        self.promo_sprites = arcade.SpriteList()
+
+        for i, piece in enumerate(self.promo_options):
+            rect_x = menu_x + i * TILE
+            rect = (rect_x, menu_y, TILE, TILE)
+            self.promo_rects.append(rect)
+
+            if hasattr(self, 'promo_hover') and self.promo_hover == i:
+                arcade.draw_lbwh_rectangle_filled(rect_x, menu_y, TILE, TILE, arcade.color.LIGHT_GRAY)
+
+            sprite = arcade.Sprite(
+                f"assets/pieces/{'w' if self.promoting.player == WHITE else 'b'}{piece}.png",
+                scale=PIECE_SIZE / TILE
+            )
+            sprite.center_x = rect_x + TILE // 2
+            sprite.center_y = menu_y + TILE // 2
+            self.promo_sprites.append(sprite)
+
+        self.promo_sprites.draw()
+
     def on_key_press(self, key, modifiers):
         if key == arcade.key.ESCAPE:
             if self.return_view_cls:
@@ -115,100 +210,161 @@ class ChessGameView(arcade.View):
         if self.game_over:
             return
 
+        if self.promoting:
+            self.handle_promo_click(x, y)
+            return
+
         c = x // TILE
         r = BOARD - 1 - (y // TILE)
-        piece = self.get_piece_at(r, c)
+        piece = self.piece_at(r, c)
 
-        if self.selected_piece:
-            if (r, c) in self.valid_moves:
+        if self.selected:
+            if (r, c) in self.moves:
                 self.make_move(r, c)
             else:
                 if piece and piece.player == self.turn:
-                    self.selected_piece = piece
-                    self.valid_moves = self.get_valid_moves(piece)
+                    self.selected = piece
+                    self.moves = self.get_moves(piece)
                 else:
-                    self.selected_piece = None
-                    self.valid_moves = []
+                    self.selected = None
+                    self.moves = []
         else:
             if piece and piece.player == self.turn:
-                self.selected_piece = piece
-                self.valid_moves = self.get_valid_moves(piece)
+                self.selected = piece
+                self.moves = self.get_moves(piece)
+
+    def handle_promo_click(self, x, y):
+        for i, rect in enumerate(self.promo_rects):
+            rect_x, rect_y, width, height = rect
+            if rect_x <= x <= rect_x + width and rect_y <= y <= rect_y + height:
+                self.promoting.kind = self.promo_options[i]
+                self.promoting.texture = arcade.load_texture(
+                    f"assets/pieces/{'w' if self.promoting.player == WHITE else 'b'}{self.promo_options[i]}.png"
+                )
+                self.promoting.scale = PIECE_SIZE / TILE
+
+                self.promo_sprites = arcade.SpriteList()
+
+                self.turn *= -1
+                self.promoting = None
+                self.promo_rects = []
+
+                self.check_king = None
+                self.checkers = []
+                if self.in_check(self.turn):
+                    self.update_check()
+                    if self.checkmate(self.turn):
+                        self.game_over = True
+                        self.winner = -self.turn
+                break
 
     def make_move(self, r, c):
-        target = self.get_piece_at(r, c)
+        target = self.piece_at(r, c)
 
-        old_row, old_col = self.selected_piece.row, self.selected_piece.col
+        en_passant_cap = False
+        if self.en_passant and (r, c) == self.en_passant and self.selected.kind == "P":
+            cap_row = self.selected.row
+            cap_col = c
+            cap_pawn = self.piece_at(cap_row, cap_col)
+            if cap_pawn:
+                self.pieces.remove(cap_pawn)
+                en_passant_cap = True
 
-        if target:
+        old_r, old_c = self.selected.row, self.selected.col
+        moving_pawn = (self.selected.kind == "P")
+
+        if target and not en_passant_cap:
             self.pieces.remove(target)
             arcade.play_sound(self.move_sound)
         else:
             arcade.play_sound(self.move_sound)
 
-        self.selected_piece.row = r
-        self.selected_piece.col = c
-        self.selected_piece.update_position()
+        self.selected.row = r
+        self.selected.col = c
+        self.selected.update_pos()
 
-        if self.selected_piece.kind == "K" and abs(c - old_col) == 2:
-            if c > old_col:
-                rook_col = 7
-                new_rook_col = c - 1
+        if self.selected.kind == "K" and abs(c - old_c) == 2:
+            if c > old_c:
+                rook_c = 7
+                new_rook_c = c - 1
             else:
-                rook_col = 0
-                new_rook_col = c + 1
+                rook_c = 0
+                new_rook_c = c + 1
 
-            rook = self.get_piece_at(r, rook_col)
+            rook = self.piece_at(r, rook_c)
             if rook:
-                rook.col = new_rook_col
-                rook.update_position()
+                rook.col = new_rook_c
+                rook.update_pos()
                 rook.first_move = False
 
-        if self.selected_piece.kind == "P":
-            self.selected_piece.first_move = False
-            if (self.selected_piece.player == WHITE and r == 0) or (self.selected_piece.player == BLACK and r == 7):
-                self.selected_piece.kind = "Q"
-                self.selected_piece.texture = arcade.load_texture(
-                    f"assets/pieces/{'w' if self.selected_piece.player == WHITE else 'b'}Q.png"
-                )
-                self.selected_piece.scale = PIECE_SIZE / TILE
+        new_en_passant = None
+        if moving_pawn and abs(r - old_r) == 2:
+            en_passant_r = (old_r + r) // 2
+            new_en_passant = (en_passant_r, c)
 
-        if self.selected_piece.kind in ["K", "R"]:
-            self.selected_piece.first_move = False
+        pawn_promo = False
+        if self.selected.kind == "P":
+            self.selected.first_move = False
+            if (self.selected.player == WHITE and r == 0) or (self.selected.player == BLACK and r == 7):
+                pawn_promo = True
+                self.promoting = self.selected
 
-        if self.is_in_check(self.selected_piece.player):
-            self.selected_piece.row = old_row
-            self.selected_piece.col = old_col
-            self.selected_piece.update_position()
-            if target:
+        if self.selected.kind in ["K", "R"]:
+            self.selected.first_move = False
+
+        if self.in_check(self.selected.player):
+            self.selected.row = old_r
+            self.selected.col = old_c
+            self.selected.update_pos()
+            if target and not en_passant_cap:
                 self.pieces.append(target)
-            if self.selected_piece.kind == "K" and abs(c - old_col) == 2:
-                if c > old_col:
-                    rook_col = 7
-                    old_rook_col = c - 1
+            if en_passant_cap:
+                cap_pawn = ChessPiece("P", -self.selected.player, old_r, c)
+                cap_pawn.first_move = False
+                self.pieces.append(cap_pawn)
+            if self.selected.kind == "K" and abs(c - old_c) == 2:
+                if c > old_c:
+                    rook_c = 7
+                    old_rook_c = c - 1
                 else:
-                    rook_col = 0
-                    old_rook_col = c + 1
+                    rook_c = 0
+                    old_rook_c = c + 1
 
-                rook = self.get_piece_at(r, old_rook_col)
+                rook = self.piece_at(r, old_rook_c)
                 if rook:
-                    rook.col = rook_col
-                    rook.update_position()
+                    rook.col = rook_c
+                    rook.update_pos()
                     rook.first_move = True
             return
 
-        self.turn *= -1
-        self.check_king = None
+        if pawn_promo:
+            self.en_passant = None
+            return
 
-        if self.is_in_check(self.turn):
-            self.check_king = self.find_king(self.turn)
-            if self.is_checkmate(self.turn):
+        self.turn *= -1
+        self.en_passant = new_en_passant
+        self.check_king = None
+        self.checkers = []
+
+        if self.in_check(self.turn):
+            self.update_check()
+            if self.checkmate(self.turn):
                 self.game_over = True
                 self.winner = -self.turn
 
-        self.selected_piece = None
-        self.valid_moves = []
+        self.selected = None
+        self.moves = []
 
-    def get_piece_at(self, r, c):
+    def update_check(self):
+        self.check_king = self.find_king(self.turn)
+        self.checkers = []
+
+        if self.check_king:
+            for piece in self.pieces:
+                if piece.player != self.turn and self.can_move(piece, self.check_king.row, self.check_king.col, False):
+                    self.checkers.append(piece)
+
+    def piece_at(self, r, c):
         for p in self.pieces:
             if p.row == r and p.col == c:
                 return p
@@ -220,78 +376,85 @@ class ChessGameView(arcade.View):
                 return p
         return None
 
-    def is_in_check(self, color):
+    def in_check(self, color):
         king = self.find_king(color)
         if not king:
             return True
 
         for piece in self.pieces:
-            if piece.player != color and self.is_legal_move(piece, king.row, king.col, check_check=False):
+            if piece.player != color and self.can_move(piece, king.row, king.col, False):
                 return True
         return False
 
-    def get_valid_moves(self, piece):
+    def get_moves(self, piece):
         moves = []
         for r in range(BOARD):
             for c in range(BOARD):
-                if self.is_legal_move(piece, r, c):
-                    old_row, old_col = piece.row, piece.col
-                    target = self.get_piece_at(r, c)
+                if self.can_move(piece, r, c):
+                    old_r, old_c = piece.row, piece.col
+                    target = self.piece_at(r, c)
+
+                    en_passant_move = (piece.kind == "P" and self.en_passant and (r, c) == self.en_passant)
 
                     piece.row, piece.col = r, c
-                    removed_piece = None
-                    if target:
+                    removed = None
+                    if target and not en_passant_move:
                         self.pieces.remove(target)
-                        removed_piece = target
+                        removed = target
 
-                    if piece.kind == "K" and abs(c - old_col) == 2:
-                        if c > old_col:
-                            rook_col = 7
-                            new_rook_col = c - 1
+                    if en_passant_move:
+                        cap_r = old_r
+                        cap_c = c
+                        cap_pawn = self.piece_at(cap_r, cap_c)
+                        if cap_pawn:
+                            self.pieces.remove(cap_pawn)
+                            removed = cap_pawn
+
+                    if piece.kind == "K" and abs(c - old_c) == 2:
+                        if c > old_c:
+                            rook_c = 7
+                            new_rook_c = c - 1
                         else:
-                            rook_col = 0
-                            new_rook_col = c + 1
+                            rook_c = 0
+                            new_rook_c = c + 1
 
-                        rook = self.get_piece_at(old_row, rook_col)
+                        rook = self.piece_at(old_r, rook_c)
                         if rook:
-                            rook.col = new_rook_col
+                            rook.col = new_rook_c
                             temp_removed = None
-                            if (
-                                self.get_piece_at(old_row, new_rook_col)
-                                and self.get_piece_at(old_row, new_rook_col) != rook
-                            ):
-                                temp_removed = self.get_piece_at(old_row, new_rook_col)
+                            if self.piece_at(old_r, new_rook_c) and self.piece_at(old_r, new_rook_c) != rook:
+                                temp_removed = self.piece_at(old_r, new_rook_c)
                                 self.pieces.remove(temp_removed)
 
-                    if not self.is_in_check(piece.player):
+                    if not self.in_check(piece.player):
                         moves.append((r, c))
 
-                    piece.row, piece.col = old_row, old_col
-                    if removed_piece:
-                        self.pieces.append(removed_piece)
+                    piece.row, piece.col = old_r, old_c
+                    if removed:
+                        self.pieces.append(removed)
 
-                    if piece.kind == "K" and abs(c - old_col) == 2:
-                        if c > old_col:
-                            rook_col = 7
-                            new_rook_col = c - 1
+                    if piece.kind == "K" and abs(c - old_c) == 2:
+                        if c > old_c:
+                            rook_c = 7
+                            new_rook_c = c - 1
                         else:
-                            rook_col = 0
-                            new_rook_col = c + 1
+                            rook_c = 0
+                            new_rook_c = c + 1
 
-                        rook = self.get_piece_at(old_row, new_rook_col)
+                        rook = self.piece_at(old_r, new_rook_c)
                         if rook and rook.kind == "R":
-                            rook.col = rook_col
-                            rook.update_position()
+                            rook.col = rook_c
+                            rook.update_pos()
                         if temp_removed:
                             self.pieces.append(temp_removed)
 
         return moves
 
-    def is_legal_move(self, piece, r, c, check_check=True):
+    def can_move(self, piece, r, c, check=True):
         if not (0 <= r < BOARD and 0 <= c < BOARD):
             return False
 
-        target = self.get_piece_at(r, c)
+        target = self.piece_at(r, c)
         if target and target.player == piece.player:
             return False
 
@@ -299,18 +462,25 @@ class ChessGameView(arcade.View):
         dc = c - piece.col
 
         if piece.kind == "P":
-            direction = -1 if piece.player == WHITE else 1
+            dir = -1 if piece.player == WHITE else 1
 
-            if dc == 0 and dr == direction and not target:
+            if dc == 0 and dr == dir and not target:
                 return True
 
-            if dc == 0 and dr == 2 * direction and piece.first_move:
-                mid_r = piece.row + direction
-                if not self.get_piece_at(mid_r, piece.col) and not target:
+            if dc == 0 and dr == 2 * dir and piece.first_move:
+                mid_r = piece.row + dir
+                if not self.piece_at(mid_r, piece.col) and not target:
                     return True
 
-            if abs(dc) == 1 and dr == direction and target:
+            if abs(dc) == 1 and dr == dir and target:
                 return True
+
+            if abs(dc) == 1 and dr == dir and self.en_passant and (r, c) == self.en_passant:
+                enemy_r = piece.row
+                enemy_c = c
+                enemy = self.piece_at(enemy_r, enemy_c)
+                if enemy and enemy.kind == "P" and enemy.player != piece.player:
+                    return True
 
             return False
 
@@ -339,30 +509,26 @@ class ChessGameView(arcade.View):
             if piece.first_move and dr == 0 and abs(dc) == 2:
                 if self.can_castle(piece, dc > 0):
                     if dc > 0:
-                        if self.get_piece_at(piece.row, 5) or self.get_piece_at(piece.row, 6):
+                        if self.piece_at(piece.row, 5) or self.piece_at(piece.row, 6):
                             return False
                     else:
-                        if (
-                            self.get_piece_at(piece.row, 1)
-                            or self.get_piece_at(piece.row, 2)
-                            or self.get_piece_at(piece.row, 3)
-                        ):
+                        if self.piece_at(piece.row, 1) or self.piece_at(piece.row, 2) or self.piece_at(piece.row, 3):
                             return False
 
-                    if self.is_in_check(piece.player):
+                    if self.in_check(piece.player):
                         return False
 
                     if dc > 0:
                         for col in range(piece.col + 1, 7):
-                            temp_row = piece.row
-                            temp_col = col
-                            if self.is_square_under_attack(temp_row, temp_col, piece.player):
+                            temp_r = piece.row
+                            temp_c = col
+                            if self.square_attacked(temp_r, temp_c, piece.player):
                                 return False
                     else:
                         for col in range(piece.col - 1, 0, -1):
-                            temp_row = piece.row
-                            temp_col = col
-                            if self.is_square_under_attack(temp_row, temp_col, piece.player):
+                            temp_r = piece.row
+                            temp_c = col
+                            if self.square_attacked(temp_r, temp_c, piece.player):
                                 return False
 
                     return True
@@ -370,10 +536,10 @@ class ChessGameView(arcade.View):
 
         return False
 
-    def is_square_under_attack(self, row, col, color):
+    def square_attacked(self, row, col, color):
         for piece in self.pieces:
             if piece.player != color:
-                if self.is_legal_move(piece, row, col, check_check=False):
+                if self.can_move(piece, row, col, False):
                     return True
         return False
 
@@ -385,7 +551,7 @@ class ChessGameView(arcade.View):
 
         rr, cc = sr + step_r, sc + step_c
         while (rr, cc) != (r, c):
-            if self.get_piece_at(rr, cc):
+            if self.piece_at(rr, cc):
                 return False
             rr += step_r
             cc += step_c
@@ -395,7 +561,7 @@ class ChessGameView(arcade.View):
         row = king.row
         rook_col = 7 if kingside else 0
 
-        rook = self.get_piece_at(row, rook_col)
+        rook = self.piece_at(row, rook_col)
         if not rook or rook.kind != "R" or not rook.first_move:
             return False
 
@@ -403,18 +569,18 @@ class ChessGameView(arcade.View):
         end_col = max(king.col, rook_col)
 
         for col in range(start_col, end_col):
-            if self.get_piece_at(row, col):
+            if self.piece_at(row, col):
                 return False
 
         return True
 
-    def is_checkmate(self, color):
-        if not self.is_in_check(color):
+    def checkmate(self, color):
+        if not self.in_check(color):
             return False
 
         for piece in self.pieces:
             if piece.player == color:
-                if self.get_valid_moves(piece):
+                if self.get_moves(piece):
                     return False
 
         return True
