@@ -256,8 +256,10 @@ class ChessGameView(arcade.View):
                         if rook:
                             rook.col = new_rook_col
                             temp_removed = None
-                            if self.get_piece_at(old_row, new_rook_col) and self.get_piece_at(old_row,
-                                                                                              new_rook_col) != rook:
+                            if (
+                                self.get_piece_at(old_row, new_rook_col)
+                                and self.get_piece_at(old_row, new_rook_col) != rook
+                            ):
                                 temp_removed = self.get_piece_at(old_row, new_rook_col)
                                 self.pieces.remove(temp_removed)
 
@@ -340,8 +342,11 @@ class ChessGameView(arcade.View):
                         if self.get_piece_at(piece.row, 5) or self.get_piece_at(piece.row, 6):
                             return False
                     else:
-                        if self.get_piece_at(piece.row, 1) or self.get_piece_at(piece.row, 2) or self.get_piece_at(
-                                piece.row, 3):
+                        if (
+                            self.get_piece_at(piece.row, 1)
+                            or self.get_piece_at(piece.row, 2)
+                            or self.get_piece_at(piece.row, 3)
+                        ):
                             return False
 
                     if self.is_in_check(piece.player):

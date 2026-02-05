@@ -6,12 +6,13 @@ SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
 
 GROUND_Y = 120
-GRAVITY = 800  # пикселей/сек²
-JUMP_SPEED = 450  # пикселей/сек
-MOVE_SPEED = 200  # пикселей/сек
+# Параметры для физического движка (в пикселях/кадр)
+GRAVITY = 0.8
+JUMP_SPEED = 14
+MOVE_SPEED = 5
 ATTACK_RANGE = 90
 ATTACK_DAMAGE = 10
-ATTACK_COOLDOWN = 0.4  # секунды
+ATTACK_COOLDOWN = 0.4
 
 
 class FaceDirection(enum.Enum):
@@ -39,13 +40,8 @@ class Fighter(arcade.Sprite):
             self.color_dark = arcade.color.DARK_RED
             self.color_light = arcade.color.LIGHT_CORAL
 
-        # Создаём текстуру программно
+        # Создаём текстуру
         self._create_texture()
-
-        # Физика
-        self.velocity_x = 0.0
-        self.velocity_y = 0.0
-        self.on_ground = False
 
         # Характеристики
         self.hp = 100
@@ -63,12 +59,15 @@ class Fighter(arcade.Sprite):
         self.walk_animation_timer = 0.0
         self.walk_frame = 0
 
+        # Флаг нахождения на земле
+        self.on_ground = False
+
     def _create_texture(self):
-        """Создаём простую текстуру для спрайта"""
-        self.texture = arcade.make_soft_square_texture(50, self.color_main, 255, 255)
+        """Создаём текстуру для хитбокса спрайта"""
+        self.texture = arcade.make_soft_square_texture(80, self.color_main, 255, 255)
 
     def update_fighter(self, delta_time: float):
-        """Обновление состояния бойца"""
+        """Обновление состояния бойца (таймеры и анимации, БЕЗ физики)"""
         # Обновляем таймеры
         if self.attack_cooldown_timer > 0:
             self.attack_cooldown_timer -= delta_time
@@ -82,35 +81,26 @@ class Fighter(arcade.Sprite):
                 self.is_attacking = False
                 self.attack_timer = 0
 
-        # Гравитация
-        if not self.on_ground:
-            self.velocity_y -= GRAVITY * delta_time
-
-        # Движение
-        self.center_x += self.velocity_x * delta_time
-        self.center_y += self.velocity_y * delta_time
-
-        # Проверка земли
-        if self.center_y <= GROUND_Y + 40:
-            self.center_y = GROUND_Y + 40
-            self.velocity_y = 0
-            self.on_ground = True
-        else:
-            self.on_ground = False
-
         # Границы экрана
-        self.center_x = max(50, min(SCREEN_WIDTH - 50, self.center_x))
+        if self.center_x < 50:
+            self.center_x = 50
+            self.change_x = 0
+        elif self.center_x > SCREEN_WIDTH - 50:
+            self.center_x = SCREEN_WIDTH - 50
+            self.change_x = 0
 
         # Анимация ходьбы
-        if self.is_walking:
+        if self.is_walking and self.on_ground:
             self.walk_animation_timer += delta_time
             if self.walk_animation_timer >= 0.15:
                 self.walk_animation_timer = 0
                 self.walk_frame = (self.walk_frame + 1) % 4
+        else:
+            self.walk_frame = 0
 
     def move(self, direction: int):
         """Движение: -1 влево, 1 вправо, 0 стоп"""
-        self.velocity_x = direction * MOVE_SPEED
+        self.change_x = direction * MOVE_SPEED
         self.is_walking = direction != 0
         if direction < 0:
             self.face_direction = FaceDirection.LEFT
@@ -120,8 +110,8 @@ class Fighter(arcade.Sprite):
     def jump(self):
         """Прыжок"""
         if self.on_ground:
-            self.velocity_y = JUMP_SPEED
-            self.on_ground = False
+            # Используем change_y для физического движка
+            self.change_y = JUMP_SPEED
 
     def attack(self):
         """Атака"""
@@ -151,14 +141,14 @@ class Fighter(arcade.Sprite):
             return True
         return False
 
-    def draw(self):
-        """Отрисовка бойца"""
+    def draw_fighter(self):
+        """Кастомная отрисовка бойца (не вызывает draw() спрайта)"""
         body_offset = 5 if not self.on_ground else 0
 
         # Тень
         arcade.draw_ellipse_filled(self.center_x, GROUND_Y - 5, 40, 15, (0, 0, 0, 80))
 
-        # Определяем смещение ног для анимации ходьбы
+        # Смещение ног для анимации ходьбы
         leg_offset = 0
         if self.is_walking and self.on_ground:
             leg_offset = [0, 5, 0, -5][self.walk_frame]
@@ -186,7 +176,6 @@ class Fighter(arcade.Sprite):
             arcade.draw_lbwh_rectangle_filled(
                 self.center_x + arm_dir * 15, self.center_y + 10 + body_offset, arm_dir * 45, 12, self.color_light
             )
-            # Кулак
             arcade.draw_circle_filled(
                 self.center_x + arm_dir * 60, self.center_y + 16 + body_offset, 10, self.color_light
             )
@@ -254,9 +243,8 @@ class HitParticle:
     def update(self, delta_time: float):
         self.x += self.velocity_x * delta_time
         self.y += self.velocity_y * delta_time
-        self.velocity_y -= 400 * delta_time  # Гравитация
+        self.velocity_y -= 400 * delta_time
         self.lifetime -= delta_time
-
         if self.lifetime <= 0:
             self.active = False
 
@@ -277,6 +265,13 @@ class FighterGameView(arcade.View):
         self.player2: Fighter = None
         self.particles: list = None
 
+        # Списки спрайтов для физического движка
+        self.walls_list: arcade.SpriteList = None
+
+        # Физические движки
+        self.physics_engine_1 = None
+        self.physics_engine_2 = None
+
         self.game_over = False
         self.winner = None
         self.keys_pressed = set()
@@ -289,11 +284,33 @@ class FighterGameView(arcade.View):
         self.setup()
 
     def setup(self):
-        self.player1 = Fighter(200, GROUND_Y + 40, 1)
-        self.player2 = Fighter(700, GROUND_Y + 40, 2)
+        """Инициализация/перезапуск игры"""
+        # Создаём список платформ
+        self.walls_list = arcade.SpriteList(use_spatial_hash=True)
+
+        # Создаём землю
+        ground = arcade.SpriteSolidColor(SCREEN_WIDTH * 2, 40, arcade.color.DARK_BROWN)
+        ground.center_x = SCREEN_WIDTH // 2
+        ground.center_y = GROUND_Y - 20
+        self.walls_list.append(ground)
+
+        # Создаём бойцов
+        self.player1 = Fighter(200, GROUND_Y + 80, 1)
+        self.player2 = Fighter(700, GROUND_Y + 80, 2)
+
+        # Создаём физические движки
+        self.physics_engine_1 = arcade.PhysicsEnginePlatformer(
+            self.player1, gravity_constant=GRAVITY, walls=self.walls_list
+        )
+
+        self.physics_engine_2 = arcade.PhysicsEnginePlatformer(
+            self.player2, gravity_constant=GRAVITY, walls=self.walls_list
+        )
+
         self.particles = []
         self.game_over = False
         self.winner = None
+        self.keys_pressed.clear()
 
     def spawn_particles(self, x, y, color, count=10):
         for _ in range(count):
@@ -343,8 +360,8 @@ class FighterGameView(arcade.View):
             particle.draw()
 
         # Игроки
-        self.player1.draw()
-        self.player2.draw()
+        self.player1.draw_fighter()
+        self.player2.draw_fighter()
         self.player1.draw_hp_bar()
         self.player2.draw_hp_bar()
 
@@ -368,7 +385,7 @@ class FighterGameView(arcade.View):
         )
         arcade.draw_text("WASD + Space", 180, SCREEN_HEIGHT - 60, arcade.color.CYAN, 11, anchor_x="center")
         arcade.draw_text(
-            "Стрелки + REnter", SCREEN_WIDTH - 180, SCREEN_HEIGHT - 60, arcade.color.ORANGE, 11, anchor_x="center"
+            "Стрелки + Enter", SCREEN_WIDTH - 180, SCREEN_HEIGHT - 60, arcade.color.ORANGE, 11, anchor_x="center"
         )
 
         if self.game_over:
@@ -386,7 +403,7 @@ class FighterGameView(arcade.View):
                 SCREEN_WIDTH // 2,
                 SCREEN_HEIGHT // 2 + 30,
                 winner_color,
-                36,
+                34,
                 anchor_x="center",
                 anchor_y="center",
                 bold=True,
@@ -418,12 +435,12 @@ class FighterGameView(arcade.View):
         arcade.draw_text(f"{label}: {hp}", x, y, arcade.color.WHITE, 14, anchor_x="center", anchor_y="center", bold=True)
 
     def on_update(self, delta_time):
-        delta_time = min(delta_time, 0.05)  # граница дельты
+        delta_time = min(delta_time, 0.05)
 
         if self.game_over:
             return
 
-        # P1
+        # Управление P1
         direct1 = 0
         if arcade.key.A in self.keys_pressed:
             direct1 -= 1
@@ -431,7 +448,7 @@ class FighterGameView(arcade.View):
             direct1 += 1
         self.player1.move(direct1)
 
-        # P2
+        # Управление P2
         direct2 = 0
         if arcade.key.LEFT in self.keys_pressed:
             direct2 -= 1
@@ -439,7 +456,15 @@ class FighterGameView(arcade.View):
             direct2 += 1
         self.player2.move(direct2)
 
-        # Обновление
+        # === ОБНОВЛЕНИЕ ФИЗИЧЕСКИХ ДВИЖКОВ ===
+        self.physics_engine_1.update()
+        self.physics_engine_2.update()
+
+        # Проверка нахождения на земле через физ. движок
+        self.player1.on_ground = self.physics_engine_1.can_jump()
+        self.player2.on_ground = self.physics_engine_2.can_jump()
+
+        # Обновление таймеров и анимаций
         self.player1.update_fighter(delta_time)
         self.player2.update_fighter(delta_time)
 
@@ -471,17 +496,19 @@ class FighterGameView(arcade.View):
 
     def on_key_press(self, key, modifiers):
         self.keys_pressed.add(key)
-        actions = {
-            arcade.key.W: lambda: self.player1.jump(),
-            arcade.key.UP: lambda: self.player2.jump(),
-            arcade.key.SPACE: lambda: self.player1.attack(),
-            arcade.key.ENTER: lambda: self.player2.attack(),
-            arcade.key.ESCAPE: lambda: self.window.show_view(self.return_view_cls()),
-        }
-        if key == arcade.key.R and self.game_over:
+
+        if key == arcade.key.W:
+            self.player1.jump()
+        elif key == arcade.key.UP:
+            self.player2.jump()
+        elif key == arcade.key.SPACE:
+            self.player1.attack()
+        elif key == arcade.key.ENTER:
+            self.player2.attack()
+        elif key == arcade.key.ESCAPE:
+            self.window.show_view(self.return_view_cls())
+        elif key == arcade.key.R and self.game_over:
             self.setup()
-        if key in (actions.keys()):
-            actions[key]()
 
     def on_key_release(self, key, modifiers):
         self.keys_pressed.discard(key)

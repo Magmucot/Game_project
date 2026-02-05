@@ -6,7 +6,7 @@ from data_manager import GameDataManager
 
 SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
-SCREEN_TITLE = "Оффлайн игры — 6 в 1"
+SCREEN_TITLE = "Оффлайн игры"
 
 
 class Button:
@@ -203,7 +203,7 @@ class SettingsView(arcade.View):
             f"Игр в файтинге: {self.window.data_manager.get_stats('fighter_cnt')}",
             f"Первый победил в файтинге: {self.window.data_manager.get_stats('first_won')} раз",
             f"Второй победил в файтинге: {self.window.data_manager.get_stats('second_won')} раз",
-            f"В сего запусков: {stats['total_games']}",
+            f"Вс  его запусков: {stats['total_games']}",
         ]
         for i, text in enumerate(lines):
             arcade.draw_text(text, SCREEN_WIDTH // 2, 470 - i * 50, arcade.color.WHITE, 20, anchor_x="center")
