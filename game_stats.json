@@ -1,15 +1,15 @@
 {
   "high_scores": {
     "tanks": 0,
-    "fighter_cnt": 8,
+    "fighter_cnt": 9,
     "dice": 0,
     "snake": 0,
     "chess": 0,
     "chess_cnt": 0
   },
-  "total_games": 8,
+  "total_games": 9,
   "fighter_games": {
-    "first_won": 5,
+    "first_won": 6,
     "second_won": 3
   },
   "chess_games": {
