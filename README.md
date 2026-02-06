@@ -37,6 +37,11 @@ Arcade Game Hub представляет собой мультиигровую �
 ```
 [Главное меню] [Меню выбора игры] [Статистика]
 ```
+<img width="900" height="603" alt="изображение" src="https://github.com/user-attachments/assets/f7936cf8-b28f-42b6-bc2f-fcdc1decd1b4" />
+
+<img width="900" height="603" alt="изображение" src="https://github.com/user-attachments/assets/c4dc4ae7-e07d-4ebb-a83c-4b6fd9eb1a68" />
+
+<img width="900" height="603" alt="изображение" src="https://github.com/user-attachments/assets/8ba851ce-0693-48ac-b7b0-6b5ad332fbff" />
 
 ## 💻 Требования
 
